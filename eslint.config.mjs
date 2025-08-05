@@ -11,6 +11,18 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    rules: {
+      // Предотвращение цикличных зависимостей
+      'import/no-cycle': ['error', { ignoreExternal: true }],
+      // Предотвращение использования переменных до их объявления
+      'no-use-before-define': ['error'],
+      // Предотвращение неправильного использования hoisting
+      '@typescript-eslint/no-use-before-define': ['error'],
+      // Обязательные зависимости в useEffect
+      'react-hooks/exhaustive-deps': 'error',
+    },
+  },
 ];
 
 export default eslintConfig;

@@ -1,19 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import dynamic from "next/dynamic";
-
-// Динамические импорты компонентов для избежания SSR проблем
-const SidePanel = dynamic(() => import("@/components/layout/SidePanel"), {
-  ssr: false
-});
-
-const MainContentArea = dynamic(() => import("@/components/layout/MainContentArea"), {
-  ssr: false
-});
-
-const EffectsProvider = dynamic(() => import("@/components/providers/EffectsProvider").then(mod => ({ default: mod.EffectsProvider })), {
-  ssr: false
-});
+import ClientLayoutWrapper from "@/components/layout/ClientLayoutWrapper";
 
 export const metadata: Metadata = {
   title: "Arcanum Platform",
@@ -48,20 +35,9 @@ export default function RootLayout({
         `}</style>
       </head>
       <body className="antialiased bg-gray-900 text-white min-h-screen">
-        <EffectsProvider>
-          <div className="flex h-screen w-full">
-            {/* Левая боковая панель */}
-            <SidePanel position="left" />
-            
-            {/* Центральная область контента */}
-            <MainContentArea>
-              {children}
-            </MainContentArea>
-            
-            {/* Правая боковая панель */}
-            <SidePanel position="right" />
-          </div>
-        </EffectsProvider>
+        <ClientLayoutWrapper>
+          {children}
+        </ClientLayoutWrapper>
       </body>
     </html>
   );

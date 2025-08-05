@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
     // Игнорируем TypeScript ошибки при сборке
     ignoreBuildErrors: true,
   },
+  // Включаем source maps для диагностики
+  productionBrowserSourceMaps: true,
 };
 
 export default nextConfig;
