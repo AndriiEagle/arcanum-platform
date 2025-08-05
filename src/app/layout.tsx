@@ -1,8 +1,19 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import SidePanel from "@/components/layout/SidePanel";
-import MainContentArea from "@/components/layout/MainContentArea";
-import { EffectsProvider } from "@/components/providers/EffectsProvider";
+import dynamic from "next/dynamic";
+
+// Динамические импорты компонентов для избежания SSR проблем
+const SidePanel = dynamic(() => import("@/components/layout/SidePanel"), {
+  ssr: false
+});
+
+const MainContentArea = dynamic(() => import("@/components/layout/MainContentArea"), {
+  ssr: false
+});
+
+const EffectsProvider = dynamic(() => import("@/components/providers/EffectsProvider").then(mod => ({ default: mod.EffectsProvider })), {
+  ssr: false
+});
 
 export const metadata: Metadata = {
   title: "Arcanum Platform",
@@ -49,7 +60,7 @@ export default function RootLayout({
             
             {/* Правая боковая панель */}
             <SidePanel position="right" />
-                     </div>
+          </div>
         </EffectsProvider>
       </body>
     </html>
