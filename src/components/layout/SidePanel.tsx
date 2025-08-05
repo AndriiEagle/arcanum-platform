@@ -54,14 +54,12 @@ export default function SidePanel({ position }: SidePanelProps) {
   
   // Загрузка всех данных при инициализации
   useEffect(() => {
-    if (userId) {
-      if (position === 'left') {
-        loadUserSpheres()
-        loadProgrammableButtons()
-        loadCategories()
-      }
+    if (userId && position === 'left') {
+      loadUserSpheres()
+      loadProgrammableButtons()
+      loadCategories()
     }
-  }, [userId, position, loadUserSpheres, loadProgrammableButtons, loadCategories])
+  }, [userId, position])
   
   const loadUserSpheres = async () => {
     if (!userId) return
@@ -115,7 +113,7 @@ export default function SidePanel({ position }: SidePanelProps) {
       setProgrammableButtons([
         { id: '1', label: 'Квесты', action: 'open_quests', icon: '🎯', isActive: true },
         { id: '2', label: 'Статы', action: 'show_stats', icon: '📊', isActive: true },
-        { id: '3', name: 'Инвентарь', action: 'open_inventory', icon: '🎒', isActive: true }
+        { id: '3', label: 'Инвентарь', action: 'open_inventory', icon: '🎒', isActive: true }
       ])
     } catch (error) {
       console.error('Error loading programmable buttons:', error)

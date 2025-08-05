@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from "next/dynamic";
+import ErrorBoundary from "../ErrorBoundary";
 
 // Динамические импорты компонентов для избежания SSR проблем
 const SidePanel = dynamic(() => import("@/components/layout/SidePanel"), {
@@ -23,19 +24,21 @@ interface ClientLayoutWrapperProps {
 
 export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
   return (
-    <EffectsProvider>
-      <div className="flex h-screen w-full">
-        {/* Левая боковая панель */}
-        <SidePanel position="left" />
-        
-        {/* Центральная область контента */}
-        <MainContentArea>
-          {children}
-        </MainContentArea>
-        
-        {/* Правая боковая панель */}
-        <SidePanel position="right" />
-      </div>
-    </EffectsProvider>
+    <ErrorBoundary>
+      <EffectsProvider>
+        <div className="flex h-screen w-full">
+          {/* Левая боковая панель */}
+          <SidePanel position="left" />
+          
+          {/* Центральная область контента */}
+          <MainContentArea>
+            {children}
+          </MainContentArea>
+          
+          {/* Правая боковая панель */}
+          <SidePanel position="right" />
+        </div>
+      </EffectsProvider>
+    </ErrorBoundary>
   );
 } 

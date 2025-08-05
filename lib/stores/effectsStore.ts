@@ -238,5 +238,5 @@ export const useThemeStyles = () => {
     }
   }
   
-  return SPHERE_THEMES[globalTheme as keyof typeof SPHERE_THEMES] || SPHERE_THEMES.personal-growth
+  return SPHERE_THEMES[globalTheme as keyof typeof SPHERE_THEMES] || SPHERE_THEMES['personal-growth']
 } 
