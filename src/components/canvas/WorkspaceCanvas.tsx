@@ -262,7 +262,7 @@ export default function WorkspaceCanvas() {
             disabled: false,
             velocityDisabled: true,
             activationKeys: [],
-            excluded: []
+            excluded: ['.draggable-widget', '.widget-content', 'button', 'input', 'textarea']
           }}
           doubleClick={{ 
             disabled: true

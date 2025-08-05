@@ -31,6 +31,11 @@ export default function DraggableWidget({
     zIndex: isDragging ? 1000 : 'auto',
   }
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Блокируем всплытие события для предотвращения панорамирования дашборда
+    e.stopPropagation()
+  }
+
   return (
     <div
       ref={setNodeRef}
@@ -41,16 +46,20 @@ export default function DraggableWidget({
         top: initialPosition.y,
       }}
       className={`
+        draggable-widget
         ${className}
         ${isDragging ? 'opacity-50 scale-105' : 'opacity-100'}
         transition-all duration-200 ease-out
         cursor-grab active:cursor-grabbing
         hover:shadow-xl
       `}
+      onMouseDown={handleMouseDown}
       {...listeners}
       {...attributes}
     >
-      {children}
+      <div className="widget-content">
+        {children}
+      </div>
     </div>
   )
 } 
