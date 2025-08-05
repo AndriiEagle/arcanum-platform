@@ -27,6 +27,10 @@ export default function WorkspaceCanvas() {
     positionY: 0,
   })
 
+  // Состояние для управления интерфейсом
+  const [showControlsInfo, setShowControlsInfo] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
   // Состояние для виджетов
   const [widgets, setWidgets] = useState<Widget[]>([
     {
@@ -60,8 +64,6 @@ export default function WorkspaceCanvas() {
       data: { title: '🌱 Growth Widget', content: 'Прогресс развития' }
     }
   ])
-
-  const [isLoading, setIsLoading] = useState(true)
 
   // Создаем Supabase клиент
   const supabase = createClient()
@@ -170,13 +172,15 @@ export default function WorkspaceCanvas() {
   // Рендеринг виджета по типу
   const renderWidgetContent = (widget: Widget) => {
     const { title, content } = widget.data || {}
+    const titleStr = typeof title === 'string' ? title : 'Unknown Title'
+    const contentStr = typeof content === 'string' ? content : 'No content'
     
     switch (widget.type) {
       case 'StatsWidget':
         return (
           <div className="bg-purple-800/90 backdrop-blur-sm rounded-lg p-4 border border-purple-700 shadow-xl min-w-[200px]">
-            <h4 className="text-purple-300 font-medium mb-2">{title}</h4>
-            <p className="text-gray-400 text-sm">{content}</p>
+            <h4 className="text-purple-300 font-medium mb-2">{titleStr}</h4>
+            <p className="text-gray-400 text-sm">{contentStr}</p>
             <div className="mt-3 space-y-1 text-xs text-purple-200">
               <div>Уровень: 15</div>
               <div>XP: 2,340 / 3,000</div>
@@ -188,8 +192,8 @@ export default function WorkspaceCanvas() {
       case 'QuestWidget':
         return (
           <div className="bg-blue-800/90 backdrop-blur-sm rounded-lg p-4 border border-blue-700 shadow-xl min-w-[200px]">
-            <h4 className="text-blue-300 font-medium mb-2">{title}</h4>
-            <p className="text-gray-400 text-sm">{content}</p>
+            <h4 className="text-blue-300 font-medium mb-2">{titleStr}</h4>
+            <p className="text-gray-400 text-sm">{contentStr}</p>
             <div className="mt-3 space-y-1 text-xs text-blue-200">
               <div>• Медитация (15 мин)</div>
               <div>• Код-ревью проекта</div>
@@ -201,8 +205,8 @@ export default function WorkspaceCanvas() {
       case 'GrowthWidget':
         return (
           <div className="bg-green-800/90 backdrop-blur-sm rounded-lg p-4 border border-green-700 shadow-xl min-w-[200px]">
-            <h4 className="text-green-300 font-medium mb-2">{title}</h4>
-            <p className="text-gray-400 text-sm">{content}</p>
+            <h4 className="text-green-300 font-medium mb-2">{titleStr}</h4>
+            <p className="text-gray-400 text-sm">{contentStr}</p>
             <div className="mt-3 space-y-1 text-xs text-green-200">
               <div>Здоровье: +15%</div>
               <div>Финансы: +8%</div>
@@ -244,10 +248,28 @@ export default function WorkspaceCanvas() {
           initialScale={1}
           minScale={0.1}
           maxScale={5}
-          centerOnInit={true}
-          wheel={{ wheelDisabled: false }}
-          panning={{ disabled: false }}
-          doubleClick={{ disabled: false }}
+          centerOnInit={false}
+          centerZoomedOut={false}
+          limitToBounds={false}
+          wheel={{ 
+            wheelDisabled: false,
+            touchPadDisabled: false,
+            step: 0.15,
+            activationKeys: [],
+            excluded: []
+          }}
+          panning={{ 
+            disabled: false,
+            velocityDisabled: true,
+            activationKeys: [],
+            excluded: []
+          }}
+          doubleClick={{ 
+            disabled: true
+          }}
+          pinch={{
+            disabled: false
+          }}
           onTransformed={(ref, state) => {
             setTransformState({
               scale: state.scale,
@@ -311,16 +333,58 @@ export default function WorkspaceCanvas() {
         <div className="text-xs text-green-400 mt-2">Виджетов: {widgets.length}</div>
       </div>
 
-      {/* Инструкции */}
-      <div className="absolute top-4 left-4 bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700 shadow-xl">
-        <h4 className="text-white font-medium mb-2">🎮 Управление</h4>
-        <div className="text-xs text-gray-400 space-y-1">
-          <div>🖱️ Зажми и тяни для панорамирования</div>
-          <div>🔄 Колесико мыши для масштабирования</div>
-          <div>👆 Двойной клик для центрирования</div>
-          <div className="text-purple-400">✋ Тяни виджеты для перемещения</div>
+      {/* Кнопка показа/скрытия информации об управлении */}
+      <button
+        onClick={() => setShowControlsInfo(!showControlsInfo)}
+        className="absolute top-4 left-4 w-12 h-12 bg-gray-800/90 hover:bg-gray-700/90 backdrop-blur-sm rounded-full border border-gray-700 shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110 z-30"
+        title={showControlsInfo ? 'Скрыть инструкции' : 'Показать инструкции'}
+      >
+        <span className="text-2xl">{showControlsInfo ? '❌' : '❓'}</span>
+      </button>
+
+      {/* Управляемая панель инструкций */}
+      {showControlsInfo && (
+        <div className="absolute top-20 left-4 bg-gray-800/95 backdrop-blur-sm rounded-lg p-4 border border-gray-700 shadow-xl max-w-xs z-20 animate-fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-white font-medium">🎮 Управление</h4>
+            <button
+              onClick={() => setShowControlsInfo(false)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="text-xs text-gray-400 space-y-2">
+            <div className="flex items-start space-x-2">
+              <span>🖱️</span>
+              <span>Зажми ЛКМ и тяни для панорамирования</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <span>🔄</span>
+              <span>Колесико мыши для плавного масштабирования</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <span>✋</span>
+              <span className="text-purple-400">Тяни виджеты для перемещения</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <span>📌</span>
+              <span className="text-blue-400">Позиция сохраняется автоматически</span>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Стили для анимации */}
+      <style jsx>{`
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.2s ease-out;
+        }
+      `}</style>
     </div>
   )
 } 
