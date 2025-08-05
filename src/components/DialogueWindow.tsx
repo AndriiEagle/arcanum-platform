@@ -214,18 +214,31 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
         }),
       })
 
-      let responseText = 'Прошу прощения, но я временно недоступен. API /api/chat еще не реализован.'
+      let responseText = 'Произошла ошибка соединения с Arcanum Brain.'
       let messageType: 'text' | 'command' | 'system' = 'text'
 
       if (response.ok) {
         const data = await response.json()
-        responseText = data.response || responseText
-        messageType = data.type || 'text'
+        responseText = data.response || 'MOYO получил пустой ответ от сервера.'
+        messageType = data.type || data.commandType || 'text'
         
         // Обновляем статистику использования токенов
-        if (data.usage) {
-          addTokenUsage(data.usage.prompt_tokens || 0, data.usage.completion_tokens || 0)
+        if (data.tokensUsed) {
+          addTokenUsage(Math.floor(data.tokensUsed * 0.6), Math.floor(data.tokensUsed * 0.4))
         }
+        
+        // Логируем успешный ответ для отладки
+        console.log('🤖 MOYO Response:', {
+          response: responseText,
+          commandType: data.commandType,
+          modelUsed: data.modelUsed,
+          tokensUsed: data.tokensUsed,
+          actions: data.actions
+        })
+      } else {
+        // Логируем ошибку ответа
+        console.error('❌ API Error:', response.status, response.statusText)
+        responseText = `Ошибка API (${response.status}): ${response.statusText}`
       }
 
       const moyoResponse: Message = {
