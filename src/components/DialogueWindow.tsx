@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../../lib/supabase/client'
 import { useCurrentUserId } from '../../lib/stores/authStore'
 import { useCurrentModel, useModelStore } from '../../lib/stores/modelStore'
+import { useUIStore } from '../../lib/stores/uiStore'
 import ModelSelector from './ai/ModelSelector'
 
 interface Message {
@@ -23,7 +24,9 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   const userId = useCurrentUserId()
   const currentModel = useCurrentModel()
   const { addTokenUsage } = useModelStore()
+  const { isLeftPanelOpen, isRightPanelOpen } = useUIStore()
   
+  // Состояние диалогового окна
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -36,11 +39,39 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   const [inputValue, setInputValue] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showTools, setShowTools] = useState(false)
+  
+  // Новые состояния для функциональности
+  const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [isDocked, setIsDocked] = useState(true)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [size, setSize] = useState({ width: 384, height: 500 }) // w-96 = 384px
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const supabase = createClient()
+
+  // Вычисляем адаптивную позицию
+  const getAdaptivePosition = () => {
+    if (isDocked) {
+      const rightOffset = isRightPanelOpen ? 240 : 24 // 15% ширины экрана ≈ 240px или отступ 24px
+      return {
+        bottom: 24,
+        right: rightOffset,
+        position: 'fixed' as const
+      }
+    } else {
+      return {
+        top: position.y,
+        left: position.x,
+        position: 'fixed' as const
+      }
+    }
+  }
 
   // Автопрокрутка к последнему сообщению
   const scrollToBottom = () => {
@@ -57,6 +88,100 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
       inputRef.current.focus()
     }
   }, [isOpen])
+
+  // Обработчики перетаскивания
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isDocked) return
+    
+    setIsDragging(true)
+    const rect = dialogRef.current?.getBoundingClientRect()
+    if (rect) {
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      })
+    }
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging || !dialogRef.current) return
+    
+    const newX = e.clientX - dragOffset.x
+    const newY = e.clientY - dragOffset.y
+    
+    // Ограничиваем перемещение границами экрана
+    const maxX = window.innerWidth - size.width
+    const maxY = window.innerHeight - size.height
+    
+    setPosition({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    })
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  // Обработчики изменения размера
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsResizing(true)
+  }
+
+  const handleResize = (e: MouseEvent) => {
+    if (!isResizing) return
+    
+    const rect = dialogRef.current?.getBoundingClientRect()
+    if (rect) {
+      const newWidth = Math.max(320, e.clientX - rect.left)
+      const newHeight = Math.max(400, e.clientY - rect.top)
+      
+      setSize({
+        width: Math.min(newWidth, window.innerWidth - position.x),
+        height: Math.min(newHeight, window.innerHeight - position.y)
+      })
+    }
+  }
+
+  const handleResizeEnd = () => {
+    setIsResizing(false)
+  }
+
+  // Подписка на события мыши
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragging, dragOffset])
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResize)
+      document.addEventListener('mouseup', handleResizeEnd)
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleResize)
+      document.removeEventListener('mouseup', handleResizeEnd)
+    }
+  }, [isResizing, position])
+
+  // Переключение режима закрепления
+  const toggleDocked = () => {
+    if (isDocked) {
+      // Открепляем: устанавливаем позицию в центр экрана
+      setPosition({
+        x: (window.innerWidth - size.width) / 2,
+        y: (window.innerHeight - size.height) / 2
+      })
+    }
+    setIsDocked(!isDocked)
+  }
 
   // Отправка сообщения
   const handleSendMessage = async () => {
@@ -185,11 +310,18 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
     inputRef.current?.focus()
   }
 
+  const adaptivePosition = getAdaptivePosition()
+
   if (!isOpen) {
     return (
       <button
         onClick={onToggle}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border-2 border-white/20"
+        className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border-2 border-white/20 z-50"
+        style={{
+          position: 'fixed',
+          bottom: 24,
+          right: isRightPanelOpen ? 240 : 24
+        }}
         title="Открыть диалог с MOYO"
       >
         <div className="text-2xl animate-pulse">🤖</div>
@@ -198,9 +330,27 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-96 h-[500px] bg-gray-800/95 backdrop-blur-lg rounded-lg border border-gray-700 shadow-2xl flex flex-col overflow-hidden">
-      {/* Заголовок */}
-      <div className="bg-gradient-to-r from-purple-800 to-blue-800 p-4 border-b border-gray-700">
+    <div
+      ref={dialogRef}
+      className={`
+        bg-gray-800/95 backdrop-blur-lg rounded-lg border border-gray-700 shadow-2xl flex flex-col overflow-hidden
+        ${isDragging ? 'shadow-purple-500/50 scale-105' : 'shadow-2xl'}
+        ${isResizing ? 'shadow-blue-500/50' : ''}
+        transition-all duration-200
+      `}
+      style={{
+        ...adaptivePosition,
+        width: size.width,
+        height: size.height,
+        zIndex: isDocked ? 40 : 50,
+        cursor: isDragging ? 'grabbing' : isDocked ? 'default' : 'grab'
+      }}
+    >
+      {/* Заголовок с функциями управления */}
+      <div 
+        className="bg-gradient-to-r from-purple-800 to-blue-800 p-4 border-b border-gray-700 select-none"
+        onMouseDown={handleMouseDown}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             {/* Аватар MOYO с индикацией модели */}
@@ -224,10 +374,23 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
           </div>
           
           <div className="flex items-center space-x-2">
+            {/* Кнопка закрепления/открепления */}
+            <button
+              onClick={toggleDocked}
+              className={`p-1.5 rounded transition-colors ${
+                isDocked 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+              title={isDocked ? 'Открепить окно' : 'Закрепить окно'}
+            >
+              {isDocked ? '📌' : '🔓'}
+            </button>
+            
             <ModelSelector />
             <button
               onClick={onToggle}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-white transition-colors p-1"
               title="Свернуть диалог"
             >
               ⬇️
@@ -358,6 +521,21 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
           className="hidden"
         />
       </div>
+
+      {/* Ручка для изменения размера (только для незакрепленного режима) */}
+      {!isDocked && (
+        <div
+          className="absolute bottom-0 right-0 w-4 h-4 bg-gray-600 hover:bg-gray-500 cursor-se-resize"
+          onMouseDown={handleResizeStart}
+          title="Изменить размер"
+        >
+          <div className="absolute bottom-0.5 right-0.5 w-2 h-2">
+            <svg viewBox="0 0 8 8" className="w-full h-full text-gray-400">
+              <path d="M8,0L8,8L0,8" fill="currentColor" />
+            </svg>
+          </div>
+        </div>
+      )}
 
       {/* Кастомные стили для скроллбара */}
       <style jsx>{`
