@@ -1,10 +1,18 @@
 import Stripe from 'stripe'
 
-// Инициализация Stripe с проверкой ключа
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-07-30.basil',
-  typescript: true
-})
+// Безопасная инициализация Stripe с проверкой ключа
+let stripe: Stripe | null = null
+
+try {
+  if (process.env.STRIPE_SECRET_KEY) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2025-07-30.basil',
+      typescript: true
+    })
+  }
+} catch (error) {
+  console.warn('⚠️ Stripe не инициализирован: отсутствует STRIPE_SECRET_KEY')
+}
 
 // Интерфейсы для типизации
 interface CreatePaymentIntentParams {
@@ -28,6 +36,11 @@ interface PaymentResult {
  */
 export async function createPaymentIntent(params: CreatePaymentIntentParams): Promise<PaymentResult> {
   try {
+    // Проверка инициализации Stripe
+    if (!stripe) {
+      throw new Error('Stripe не инициализирован. Проверьте STRIPE_SECRET_KEY.')
+    }
+    
     // Валидация параметров
     if (!params.amount || params.amount <= 0) {
       throw new Error('Amount must be greater than 0')
@@ -102,6 +115,10 @@ export async function confirmPayment(paymentIntentId: string): Promise<{
   metadata: Stripe.MetadataParam
 }> {
   try {
+    if (!stripe) {
+      throw new Error('Stripe не инициализирован. Проверьте STRIPE_SECRET_KEY.')
+    }
+    
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
     
     if (paymentIntent.status === 'succeeded') {
@@ -131,6 +148,10 @@ export async function confirmPayment(paymentIntentId: string): Promise<{
  */
 export async function getUserPayments(userId: string, limit: number = 10): Promise<Stripe.PaymentIntent[]> {
   try {
+    if (!stripe) {
+      throw new Error('Stripe не инициализирован. Проверьте STRIPE_SECRET_KEY.')
+    }
+    
     const paymentIntents = await stripe.paymentIntents.list({
       limit: limit,
       // Фильтруем по метаданным пользователя
@@ -165,6 +186,10 @@ export async function createRefund(
   reason?: string
 ): Promise<Stripe.Refund> {
   try {
+    if (!stripe) {
+      throw new Error('Stripe не инициализирован. Проверьте STRIPE_SECRET_KEY.')
+    }
+    
     const refund = await stripe.refunds.create({
       payment_intent: paymentIntentId,
       amount: amount, // Если не указано, будет полный возврат
@@ -195,6 +220,13 @@ export async function checkStripeHealth(): Promise<{
   error?: string
 }> {
   try {
+    if (!stripe) {
+      return {
+        isHealthy: false,
+        error: 'Stripe не инициализирован. Проверьте STRIPE_SECRET_KEY.'
+      }
+    }
+    
     const account = await stripe.accounts.retrieve()
     
     return {

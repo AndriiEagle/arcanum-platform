@@ -47,23 +47,41 @@ export async function POST(request: NextRequest) {
     console.log(`💳 API: Создание платежа ${body.product_type} за $${amount} для пользователя ${body.user_id}`)
 
     // Создаем Payment Intent через наш сервис
-    const paymentResult = await createPaymentIntent({
-      amount: amount,
-      productType: body.product_type,
-      userId: body.user_id,
-      description: body.description
-    })
+    try {
+      const paymentResult = await createPaymentIntent({
+        amount: amount,
+        productType: body.product_type,
+        userId: body.user_id,
+        description: body.description
+      })
+      
+      console.log(`✅ API: Payment Intent создан успешно: ${paymentResult.payment_intent_id}`)
 
-    // Логируем успешное создание
-    console.log(`✅ API: Payment Intent создан успешно: ${paymentResult.payment_intent_id}`)
-
-    return NextResponse.json({
-      success: true,
-      client_secret: paymentResult.client_secret,
-      payment_intent_id: paymentResult.payment_intent_id,
-      amount: paymentResult.amount,
-      currency: paymentResult.currency
-    })
+      return NextResponse.json({
+        success: true,
+        client_secret: paymentResult.client_secret,
+        payment_intent_id: paymentResult.payment_intent_id,
+        amount: paymentResult.amount,
+        currency: paymentResult.currency
+      })
+      
+    } catch (stripeError: any) {
+      // Если Stripe не настроен, возвращаем демо-ответ для разработки
+      if (stripeError.message?.includes('Stripe не инициализирован')) {
+        console.log(`🔧 DEMO MODE: Simulating payment for ${body.product_type}`)
+        
+        return NextResponse.json({
+          success: true,
+          client_secret: 'demo_client_secret',
+          payment_intent_id: 'demo_payment_intent_' + Date.now(),
+          amount: amount * 100,
+          currency: 'usd',
+          demo_mode: true
+        })
+      }
+      
+      throw stripeError
+    }
 
   } catch (error: any) {
     console.error('❌ API Error при создании платежа:', error)
