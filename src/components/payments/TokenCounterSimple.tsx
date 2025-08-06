@@ -1,72 +1,42 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useTokenStore, selectTokenUsage, selectTokenWarning } from '../../../lib/stores/tokenStore'
 
-interface TokenCounterProps {
+interface TokenCounterSimpleProps {
   userId?: string
   onUpgrade?: () => void
   compact?: boolean
   showDetails?: boolean
 }
 
-export default function TokenCounter({ 
+export default function TokenCounterSimple({ 
   userId = 'anonymous', 
   onUpgrade, 
   compact = false,
   showDetails = false 
-}: TokenCounterProps) {
+}: TokenCounterSimpleProps) {
   const [isClient, setIsClient] = useState(false)
-  const [fallbackMode, setFallbackMode] = useState(false)
-  
-  // Fallback данные если store недоступен
-  const fallbackTokenUsage = {
+
+  // Статичные демо данные
+  const tokenUsage = {
     used: 850,
     limit: 2000,
     percentageUsed: 42.5,
     isLoading: false
   }
-  
-  const fallbackTokenWarning = {
+
+  const tokenWarning = {
     showWarning: false,
     warningMessage: '',
     isNearLimit: false
   }
-  
-  // Безопасное получение данных из store
-  const tokenUsage = useTokenStore(selectTokenUsage) || fallbackTokenUsage
-  const tokenWarning = useTokenStore(selectTokenWarning) || fallbackTokenWarning
-  const { updateUsage = () => {}, isPremium = false } = useTokenStore() || {}
+
+  const isPremium = false
 
   // Предотвращаем SSR проблемы
   useEffect(() => {
     setIsClient(true)
   }, [])
-
-  // Автоматическое обновление токенов (безопасно)
-  useEffect(() => {
-    if (!isClient || userId === 'anonymous') return
-    
-    try {
-      // Начальная загрузка
-      updateUsage(userId)
-      
-      // Обновление каждые 30 секунд
-      const interval = setInterval(() => {
-        if (document.visibilityState === 'visible') {
-          try {
-            updateUsage(userId)
-          } catch (error) {
-            console.warn('⚠️ TokenCounter: Ошибка обновления, используем локальные данные')
-          }
-        }
-      }, 30000)
-
-      return () => clearInterval(interval)
-    } catch (error) {
-      console.warn('⚠️ TokenCounter: Ошибка инициализации, используем демо данные')
-    }
-  }, [userId, updateUsage, isClient])
 
   // Пока не загружено на клиенте, показываем заглушку
   if (!isClient) {
@@ -210,33 +180,13 @@ export default function TokenCounter({
         )}
       </div>
 
-      {/* Предупреждение */}
-      {showWarning && warningMessage && (
-        <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm ${
-          percentageUsed >= 100 
-            ? 'bg-red-900/30 border border-red-500/30 text-red-300'
-            : 'bg-orange-900/30 border border-orange-500/30 text-orange-300'
-        }`}>
-          <span className="text-lg">⚠️</span>
-          <span>{warningMessage}</span>
-          {onUpgrade && (
-            <button
-              onClick={onUpgrade}
-              className="ml-auto text-xs underline hover:no-underline opacity-75 hover:opacity-100"
-            >
-              Подробнее
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Детальная информация */}
       {showDetails && (
         <div className="bg-gray-800/50 rounded-lg px-3 py-2 text-xs text-gray-400 space-y-1">
           <div className="flex justify-between">
             <span>Статус:</span>
             <span className={isPremium ? 'text-purple-400' : 'text-blue-400'}>
-              {isPremium ? 'Premium' : 'Basic'}
+              {isPremium ? 'Premium' : 'Basic'} (DEMO)
             </span>
           </div>
           <div className="flex justify-between">
@@ -245,14 +195,6 @@ export default function TokenCounter({
               {Math.max(0, limit - used).toLocaleString()} токенов
             </span>
           </div>
-          {percentageUsed > 50 && (
-            <div className="flex justify-between">
-              <span>Экономия в день:</span>
-              <span className="text-green-400">
-                ~{Math.round((used / 30))} токенов/день
-              </span>
-            </div>
-          )}
         </div>
       )}
     </div>
