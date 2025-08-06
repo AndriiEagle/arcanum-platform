@@ -59,6 +59,12 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   })
   const [currentABTest, setCurrentABTest] = useState<any>(null)
   
+  // 🎤 Состояния для голосовой записи
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
+  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -362,7 +368,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
 
   // Инструменты
   const tools = [
-    { id: 'add-button', name: 'Добавить кнопку', icon: '🔘', command: 'добавь кнопку' },
+    { id: 'voice-report', name: 'Голосовой отчёт', icon: '🎤', command: 'ГОЛОС', action: 'voice' },
     { id: 'create-task', name: 'Создать задачу', icon: '✅', command: 'создай задачу' },
     { id: 'analyze-spheres', name: 'Анализ сфер', icon: '🌐', command: 'проанализируй мои сферы' },
     { id: 'generate-image', name: 'Генерировать арт', icon: '🎨', command: 'сгенерируй изображение' },
@@ -374,6 +380,152 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
     setInputValue(command)
     setShowTools(false)
     inputRef.current?.focus()
+  }
+
+  // 📊 Отправка анализа дел
+  const sendAnalysisMessage = async (analysisText: string) => {
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: analysisText,
+      sender: 'user',
+      timestamp: new Date(),
+      type: 'command'
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setInputValue('')
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          message: analysisText,
+          context: 'experience_analysis',
+          userId: userId || 'anonymous',
+          modelId: currentModel.id
+        }),
+      })
+
+      let responseText = 'Произошла ошибка при анализе дел.'
+      
+      if (response.ok) {
+        const data = await response.json()
+        responseText = data.response || responseText
+        
+        // Логируем использование токенов
+        if (data.tokensUsed && currentModel && userId !== 'anonymous') {
+          addTokenUsage(data.tokensUsed, 0)
+        }
+      }
+
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: responseText,
+        sender: 'moyo',
+        timestamp: new Date(),
+        type: 'system'
+      }
+
+      setMessages(prev => [...prev, aiMessage])
+      
+    } catch (error) {
+      console.error('❌ Ошибка анализа дел:', error)
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Не удалось проанализировать дела. Попробуйте позже.',
+        sender: 'moyo',
+        timestamp: new Date(),
+        type: 'system'
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 🎤 Функции для голосовой записи
+  const startVoiceRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data)
+        }
+      }
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/webm' })
+        await transcribeAudio(audioBlob)
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      recorder.start()
+      setMediaRecorder(recorder)
+      setIsRecording(true)
+      setAudioChunks([])
+      
+      console.log('🎤 Запись голоса началась')
+    } catch (error) {
+      console.error('❌ Ошибка доступа к микрофону:', error)
+      alert('Не удалось получить доступ к микрофону. Проверьте разрешения.')
+    }
+  }
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorder && isRecording) {
+      mediaRecorder.stop()
+      setIsRecording(false)
+      setMediaRecorder(null)
+      console.log('🎤 Запись голоса остановлена')
+    }
+  }
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      setIsTranscribing(true)
+      console.log('🎤 Транскрибация аудио...', audioBlob.size, 'bytes')
+
+      const formData = new FormData()
+      formData.append('audio', audioBlob, 'voice_memo.webm')
+
+      const response = await fetch('/api/whisper', {
+        method: 'POST',
+        body: formData
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.transcription) {
+        console.log('✅ Транскрибация успешна:', result.transcription)
+        
+        // Добавляем специальный префикс для анализа дел
+        const analysisPrompt = `🎤 ГОЛОСОВОЙ ОТЧЁТ О ДЕЛАХ: ${result.transcription}
+
+Проанализируй мои дела за день и:
+1. Определи к каким сферам жизни относятся (Здоровье💪, Карьера💼, Финансы💰, Отношения❤️, Саморазвитие📚)
+2. Вычисли количество XP для каждой сферы (50-300 XP за дело)
+3. Покажи обновленную статистику с поздравлениями
+4. Дай рекомендации что ещё можно улучшить`
+
+        // Отправляем анализ дел автоматически
+        await sendAnalysisMessage(analysisPrompt)
+      } else {
+        console.error('❌ Ошибка транскрибации:', result.error)
+        alert(`Ошибка транскрибации: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('❌ Ошибка при транскрибации:', error)
+      alert('Ошибка при обработке аудио')
+    } finally {
+      setIsTranscribing(false)
+    }
   }
 
   const adaptivePosition = getAdaptivePosition()
@@ -517,7 +669,14 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
             {tools.map((tool) => (
               <button
                 key={tool.id}
-                onClick={() => handleToolClick(tool.command)}
+                onClick={() => {
+                  if (tool.action === 'voice') {
+                    startVoiceRecording()
+                    setShowTools(false)
+                  } else {
+                    handleToolClick(tool.command)
+                  }
+                }}
                 className="flex items-center space-x-2 p-2 bg-gray-800 hover:bg-gray-700 rounded text-xs text-gray-300 hover:text-white transition-colors"
               >
                 <span>{tool.icon}</span>
@@ -538,6 +697,34 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
             title="Добавить файлы"
           >
             📎
+          </button>
+
+          {/* 🎤 Кнопка голосовой записи */}
+          <button
+            onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+            disabled={isTranscribing}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+              isRecording 
+                ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse' 
+                : isTranscribing
+                ? 'bg-yellow-600 text-white cursor-not-allowed'
+                : 'bg-gray-700 hover:bg-gray-600 text-white'
+            }`}
+            title={
+              isRecording 
+                ? "Остановить запись (говорите о своих делах)" 
+                : isTranscribing 
+                ? "Обрабатываю голос..." 
+                : "Рассказать о делах голосом"
+            }
+          >
+            {isTranscribing ? (
+              <div className="animate-spin">⚡</div>
+            ) : isRecording ? (
+              <div className="text-lg">🔴</div>
+            ) : (
+              <div className="text-lg">🎤</div>
+            )}
           </button>
           
           {/* Поле ввода */}
