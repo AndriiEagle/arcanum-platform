@@ -5,6 +5,7 @@ import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
 import SphereHealthBar from './SphereHealthBar'
 import SphereDevelopmentTree from '../modals/SphereDevelopmentTree'
+// import PaywallModal from '../payments/PaywallModal'
 
 interface Sphere {
   id: string
@@ -91,6 +92,11 @@ export default function StatsColumnWidget() {
   // Состояние для простого модального окна (старое)
   const [selectedSphere, setSelectedSphere] = useState<Sphere | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Состояние для Paywall Modal (генерация маскотов)
+  const [showMascotPaywall, setShowMascotPaywall] = useState(false)
+  const [generatedMascot, setGeneratedMascot] = useState<string | null>(null)
+  const [isGeneratingMascot, setIsGeneratingMascot] = useState(false)
 
   const supabase = createClient()
 
@@ -152,6 +158,46 @@ export default function StatsColumnWidget() {
   const closeTreeModal = () => {
     setIsTreeModalOpen(false)
     setSelectedSphereForTree(null)
+  }
+
+  // Функция для генерации маскота с paywall
+  const handleGenerateMascot = () => {
+    console.log('🎨 Запрос на генерацию маскота')
+    setShowMascotPaywall(true)
+  }
+
+  // Функция успешной оплаты маскота
+  const handleMascotPaymentSuccess = async (paymentIntentId: string) => {
+    console.log('✅ Оплата маскота успешна:', paymentIntentId)
+    setShowMascotPaywall(false)
+    setIsGeneratingMascot(true)
+    
+    try {
+      // Симуляция генерации маскота (в реальном проекте - вызов AI API)
+      await new Promise(resolve => setTimeout(resolve, 3000))
+      
+      // Случайные маскоты для демо
+      const mascots = [
+        '🐱 Кот-воин с мечом',
+        '🦊 Мудрая лиса-маг',
+        '🐺 Волк-следопыт',
+        '🦅 Орел-наблюдатель',
+        '🐉 Дракон-защитник',
+        '🦄 Единорог-целитель',
+        '🐯 Тигр-берсерк',
+        '🐧 Пингвин-алхимик'
+      ]
+      
+      const randomMascot = mascots[Math.floor(Math.random() * mascots.length)]
+      setGeneratedMascot(randomMascot)
+      
+      console.log(`✨ Маскот сгенерирован: ${randomMascot}`)
+      
+    } catch (error) {
+      console.error('❌ Ошибка генерации маскота:', error)
+    } finally {
+      setIsGeneratingMascot(false)
+    }
   }
 
   // Загружаем данные при монтировании
@@ -364,6 +410,49 @@ export default function StatsColumnWidget() {
         isOpen={isTreeModalOpen}
         onClose={closeTreeModal}
       />
+
+      {/* Paywall Modal для генерации маскотов */}
+      {/* Временная заглушка до исправления импорта */}
+      {showMascotPaywall && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
+            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              🎨 Генерация маскота
+            </h3>
+            <p className="mb-4 text-gray-700 dark:text-gray-300">
+              Создайте уникального персонального маскота с помощью AI
+            </p>
+            <div className="mb-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Что вы получите:</div>
+              <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                <li>• Уникальный дизайн маскота</li>
+                <li>• Высокое качество изображения</li>
+                <li>• Моментальная генерация</li>
+              </ul>
+            </div>
+            <p className="text-2xl font-bold mb-4 text-center text-gray-900 dark:text-white">
+              $1.00
+            </p>
+            <div className="flex space-x-4">
+              <button 
+                onClick={() => {
+                  console.log('💳 Переход к покупке маскота')
+                  handleMascotPaymentSuccess(`pi_mascot_${Date.now()}`)
+                }}
+                className="flex-1 bg-gradient-to-r from-pink-600 to-purple-600 text-white py-2 px-4 rounded hover:from-pink-700 hover:to-purple-700 transition-all"
+              >
+                Купить сейчас
+              </button>
+              <button 
+                onClick={() => setShowMascotPaywall(false)}
+                className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Позже
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 } 

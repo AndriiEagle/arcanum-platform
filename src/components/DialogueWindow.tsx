@@ -6,6 +6,8 @@ import { useCurrentUserId } from '../../lib/stores/authStore'
 import { useCurrentModel, useModelStore } from '../../lib/stores/modelStore'
 import { useUIStore } from '../../lib/stores/uiStore'
 import ModelSelector from './ai/ModelSelector'
+// import PaywallModal from './payments/PaywallModal'
+// import { getPriceVariant, logPaywallImpression, logPaywallClick, logPaywallConversion } from '../../lib/services/abTestService'
 
 interface Message {
   id: string
@@ -47,6 +49,15 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [size, setSize] = useState({ width: 384, height: 500 }) // w-96 = 384px
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  
+  // Состояние Paywall Modal
+  const [showPaywall, setShowPaywall] = useState(false)
+  const [paywallConfig, setPaywallConfig] = useState({
+    type: 'token_limit' as const,
+    cost: 2.00,
+    description: ''
+  })
+  const [currentABTest, setCurrentABTest] = useState<any>(null)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -235,6 +246,48 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
           tokensUsed: data.tokensUsed,
           actions: data.actions
         })
+              } else if (response.status === 402) {
+          // Обработка ошибки достижения лимита токенов
+          try {
+            const errorData = await response.json()
+            if (errorData.paywall) {
+              console.log('💳 Токен-лимит достигнут, показываем paywall с A/B тестированием')
+              
+              // Симуляция A/B тестирования цены (временно без реального сервиса)
+              const userId_safe = userId || 'anonymous'
+              const basePrice = 2.00
+              const testPrices = [1.50, 1.99, 2.00, 2.40] // Варианты A/B тестирования
+              const userHash = userId_safe.split('').reduce((hash, char) => hash + char.charCodeAt(0), 0)
+              const priceIndex = userHash % testPrices.length
+              const abTestPrice = testPrices[priceIndex]
+              
+              console.log(`🧪 A/B тест токен-лимитов: цена $${abTestPrice} (индекс ${priceIndex})`)
+              
+              const mockABTest = {
+                price: abTestPrice,
+                variant: { id: `variant_${priceIndex}`, label: `Тест ${priceIndex}` },
+                testResult: { userId: userId_safe, testType: 'token_limit', variantId: `variant_${priceIndex}` }
+              }
+              setCurrentABTest(mockABTest)
+              
+              setPaywallConfig({
+                type: errorData.paywall.type || 'token_limit',
+                cost: abTestPrice, // Используем A/B тестовую цену
+                description: errorData.paywall.message || `Разблокировать 2000 токенов за $${abTestPrice}?`
+              })
+              
+              // Логируем показ paywall (симуляция)
+              console.log(`📊 A/B тест impression: ${mockABTest.testResult.variantId}`)
+              // await logPaywallImpression(abTestResult.testResult)
+              
+              setShowPaywall(true)
+              setIsLoading(false)
+              return // Прекращаем выполнение, чтобы не показывать ошибку как сообщение
+            }
+          } catch (parseError) {
+            console.error('❌ Ошибка парсинга paywall данных:', parseError)
+          }
+          responseText = 'Достигнут лимит токенов. Обновите тариф для продолжения.'
       } else {
         // Логируем ошибку ответа
         console.error('❌ API Error:', response.status, response.statusText)
@@ -566,6 +619,54 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
           background: rgba(107, 114, 128, 0.9);
         }
       `}</style>
+      
+      {/* Paywall Modal для обработки лимитов токенов */}
+      {/* Временная заглушка до исправления импорта */}
+      {showPaywall && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
+            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              💳 Лимит токенов достигнут
+            </h3>
+            <p className="mb-4 text-gray-700 dark:text-gray-300">
+              {paywallConfig.description}
+            </p>
+            <p className="text-2xl font-bold mb-4 text-center text-gray-900 dark:text-white">
+              ${paywallConfig.cost}
+            </p>
+            <div className="flex space-x-4">
+              <button 
+                onClick={async () => {
+                  console.log('💳 Переход к покупке токенов')
+                  
+                  // Логируем клик A/B теста (симуляция)
+                  if (currentABTest) {
+                    console.log(`📊 A/B тест click: ${currentABTest.testResult.variantId}`)
+                    // await logPaywallClick(currentABTest.testResult)
+                    
+                    // Симуляция успешной покупки для демо
+                    const paymentIntentId = `pi_token_abtest_${Date.now()}`
+                    console.log(`📊 A/B тест conversion: ${currentABTest.testResult.variantId}, payment: ${paymentIntentId}, price: $${currentABTest.price}`)
+                    // await logPaywallConversion(currentABTest.testResult, paymentIntentId, currentABTest.price)
+                    console.log(`✅ A/B тест конверсия залогирована: ${paymentIntentId}`)
+                  }
+                  
+                  setShowPaywall(false)
+                }}
+                className="flex-1 bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition-colors"
+              >
+                Купить сейчас
+              </button>
+              <button 
+                onClick={() => setShowPaywall(false)}
+                className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Позже
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '../../../../lib/supabase/client'
+import { logTokenUsage, getUserTokenUsage } from '../../../../lib/services/tokenService'
+import { calculateCost } from '../../../../lib/config/aiModels'
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -189,6 +191,40 @@ export async function POST(request: NextRequest) {
       systemPrompt += `\n\nКОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:\n${userContext}`
     }
 
+    // Проверяем токен-лимиты перед вызовом OpenAI API (монетизация)
+    if (userId !== 'anonymous') {
+      try {
+        const userTokensUsed = await getUserTokenUsage(userId)
+        
+        // Определяем статус пользователя (пока заглушка, позже будет из БД)
+        const isPremium = false // TODO: получать из user_stats или auth metadata
+        const tokenLimit = isPremium ? 10000 : 1000
+        
+        if (userTokensUsed > tokenLimit) {
+          console.log(`🚫 Token limit exceeded for user ${userId}: ${userTokensUsed}/${tokenLimit}`)
+          
+          return NextResponse.json({
+            error: 'Token limit reached',
+            upgrade_url: '/upgrade',
+            tokens_used: userTokensUsed,
+            limit: tokenLimit,
+            paywall: {
+              type: 'token_limit',
+              cost: 2.00,
+              message: 'Разблокировать 2000 токенов за $2?',
+              features: ['Дополнительные 2000 токенов', 'Приоритетная обработка', '24 часа доступа']
+            }
+          }, { status: 402 })
+        } else if (userTokensUsed > tokenLimit * 0.8) {
+          // Предупреждение при 80% лимита
+          console.log(`⚠️ Token usage warning for user ${userId}: ${userTokensUsed}/${tokenLimit} (${Math.round((userTokensUsed/tokenLimit)*100)}%)`)
+        }
+      } catch (error) {
+        console.error('Error checking token limits:', error)
+        // Продолжаем выполнение при ошибке проверки лимитов
+      }
+    }
+
     // Логируем использование модели
     console.log(`🤖 Используется модель: ${modelId} для пользователя ${userId}`)
     
@@ -210,6 +246,24 @@ export async function POST(request: NextRequest) {
     })
 
     const aiResponse = response.choices[0]?.message?.content || 'Извините, не смог обработать ваш запрос.'
+
+    // Логируем использование токенов для монетизации
+    if (userId !== 'anonymous' && response.usage) {
+      try {
+        await logTokenUsage({
+          user_id: userId,
+          model_id: modelId,
+          prompt_tokens: response.usage.prompt_tokens || 0,
+          completion_tokens: response.usage.completion_tokens || 0,
+          total_tokens: response.usage.total_tokens || 0,
+          cost: calculateCost(modelId, response.usage.prompt_tokens || 0, response.usage.completion_tokens || 0)
+        })
+        console.log(`💰 Logged ${response.usage.total_tokens} tokens for user ${userId}`)
+      } catch (error) {
+        console.error('Failed to log token usage:', error)
+        // Не прерываем выполнение если логирование не удалось
+      }
+    }
 
     // Обрабатываем специальные команды
     const processedResponse = await processSpecialCommands(message, aiResponse, userId, commandType)

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useCurrentModel, useModelSelector, useModelStore, useUsageStats } from '../../../lib/stores/modelStore'
 import { getAvailableModels, MODEL_CATEGORIES, AIModel } from '../../../lib/config/aiModels'
+// import PaywallModal from '../payments/PaywallModal'
 
 export default function ModelSelector() {
   const currentModel = useCurrentModel()
@@ -11,11 +12,44 @@ export default function ModelSelector() {
   const { totalTokensUsed, totalCostSpent, resetUsageStats } = useUsageStats()
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   
+  // Состояние для Premium Paywall Modal
+  const [showPremiumPaywall, setShowPremiumPaywall] = useState(false)
+  const [blockedModelId, setBlockedModelId] = useState<string | null>(null)
+  
+  // Определение премиум моделей (дорогие модели требуют подписку)
+  const premiumModels = ['gpt-4o', 'gpt-4-turbo', 'gpt-4', 'o1-preview', 'o1-mini']
+  
+  // Временная проверка премиум статуса (в реальном проекте - из authStore)
+  const isPremium = false // TODO: получить из user.isPremium
+  
   const availableModels = getAvailableModels()
 
   const handleModelSelect = (modelId: string) => {
+    // Проверка премиум моделей
+    if (premiumModels.includes(modelId) && !isPremium) {
+      console.log(`🚫 Блокировка премиум модели: ${modelId}`)
+      setBlockedModelId(modelId)
+      setShowPremiumPaywall(true)
+      return
+    }
+    
+    // Обычная логика выбора модели
+    console.log(`✅ Выбрана модель: ${modelId}`)
     setSelectedModel(modelId)
     setModelSelector(false)
+  }
+  
+  // Обработка успешной оплаты премиум подписки
+  const handlePremiumPaymentSuccess = (paymentIntentId: string) => {
+    console.log('👑 Премиум подписка активирована:', paymentIntentId)
+    setShowPremiumPaywall(false)
+    
+    if (blockedModelId) {
+      console.log(`✅ Разблокирована модель: ${blockedModelId}`)
+      setSelectedModel(blockedModelId)
+      setBlockedModelId(null)
+      setModelSelector(false)
+    }
   }
 
   const getCategoryModels = (category: string): AIModel[] => {
@@ -153,12 +187,21 @@ export default function ModelSelector() {
                         : 'border-gray-700 bg-gray-800/50 hover:border-gray-600 hover:bg-gray-800'
                     }`}
                   >
-                    {/* Индикатор выбранной модели */}
-                    {currentModel.id === model.id && (
-                      <div className="absolute top-2 right-2">
+                    {/* Индикатор выбранной модели и премиум статус */}
+                    <div className="absolute top-2 right-2 flex flex-col items-end space-y-1">
+                      {premiumModels.includes(model.id) && (
+                        <div className={`text-xs px-2 py-1 rounded-full flex items-center ${
+                          isPremium 
+                            ? 'bg-purple-600 text-white' 
+                            : 'bg-yellow-600 text-white'
+                        }`}>
+                          {isPremium ? '👑 Премиум' : '🔒 Премиум'}
+                        </div>
+                      )}
+                      {currentModel.id === model.id && (
                         <span className="text-green-400 text-sm">✓ Активна</span>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     <div className="flex items-start space-x-3">
                       {/* Иконка модели */}
@@ -172,10 +215,19 @@ export default function ModelSelector() {
                       {/* Информация о модели */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-semibold text-white">{model.name}</h4>
+                          <h4 className={`font-semibold ${
+                            premiumModels.includes(model.id) && !isPremium ? 'text-yellow-300' : 'text-white'
+                          }`}>
+                            {model.name}
+                          </h4>
                           {!model.isAvailable && (
                             <span className="text-xs bg-red-900 text-red-200 px-2 py-0.5 rounded-full">
                               Скоро
+                            </span>
+                          )}
+                          {premiumModels.includes(model.id) && !isPremium && (
+                            <span className="text-xs bg-yellow-700 text-yellow-200 px-2 py-0.5 rounded-full">
+                              Требует подписку
                             </span>
                           )}
                         </div>
@@ -252,6 +304,60 @@ export default function ModelSelector() {
           background: rgba(107, 114, 128, 0.9);
         }
       `}</style>
+
+      {/* Premium Paywall Modal */}
+      {/* Временная заглушка до исправления импорта */}
+      {showPremiumPaywall && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
+            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              👑 Премиум подписка
+            </h3>
+            <p className="mb-4 text-gray-700 dark:text-gray-300">
+              Получите доступ к самым мощным AI моделям и безлимитным токенам
+            </p>
+            <div className="mb-4">
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Что включено:</div>
+              <ul className="text-sm space-y-1 text-gray-700 dark:text-gray-300">
+                <li>• Все премиум модели (GPT-4, o1-preview)</li>
+                <li>• Безлимитные токены</li>
+                <li>• Приоритетная поддержка</li>
+                <li>• Расширенная аналитика</li>
+              </ul>
+            </div>
+            {blockedModelId && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  🎯 Разблокируется модель: <span className="font-semibold">{blockedModelId}</span>
+                </div>
+              </div>
+            )}
+            <p className="text-2xl font-bold mb-4 text-center text-gray-900 dark:text-white">
+              $9.99 <span className="text-sm font-normal text-gray-500">/ месяц</span>
+            </p>
+            <div className="flex space-x-4">
+              <button 
+                onClick={() => {
+                  console.log('💳 Переход к оформлению премиум подписки')
+                  handlePremiumPaymentSuccess(`pi_premium_${Date.now()}`)
+                }}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2 px-4 rounded hover:from-purple-700 hover:to-blue-700 transition-all"
+              >
+                Оформить подписку
+              </button>
+              <button 
+                onClick={() => {
+                  setShowPremiumPaywall(false)
+                  setBlockedModelId(null)
+                }}
+                className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Позже
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 
