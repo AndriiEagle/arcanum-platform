@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useCurrentModel, useModelSelector, useModelStore, useUsageStats } from '../../../lib/stores/modelStore'
 import { getAvailableModels, MODEL_CATEGORIES, AIModel } from '../../../lib/config/aiModels'
-// import PaywallModal from '../payments/PaywallModal'
+import PaywallModal from '../payments/PaywallModal'
 
 export default function ModelSelector() {
   const currentModel = useCurrentModel()

@@ -5,7 +5,7 @@ import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
 import SphereHealthBar from './SphereHealthBar'
 import SphereDevelopmentTree from '../modals/SphereDevelopmentTree'
-// import PaywallModal from '../payments/PaywallModal'
+import PaywallModal from '../payments/PaywallModal'
 
 interface Sphere {
   id: string

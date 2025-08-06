@@ -6,7 +6,7 @@ import { useCurrentUserId } from '../../lib/stores/authStore'
 import { useCurrentModel, useModelStore } from '../../lib/stores/modelStore'
 import { useUIStore } from '../../lib/stores/uiStore'
 import ModelSelector from './ai/ModelSelector'
-// import PaywallModal from './payments/PaywallModal'
+import PaywallModal from './payments/PaywallModal'
 // import { getPriceVariant, logPaywallImpression, logPaywallClick, logPaywallConversion } from '../../lib/services/abTestService'
 
 interface Message {

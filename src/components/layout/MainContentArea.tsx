@@ -5,7 +5,7 @@ import ResonanceView from '../views/ResonanceView'
 import { useUIStore } from '../../../lib/stores/uiStore'
 import AuthButton from '../auth/AuthButton'
 import ModelSelector from '../ai/ModelSelector'
-// import TokenCounter from '../payments/TokenCounter'
+import TokenCounter from '../payments/TokenCounter'
 
 interface MainContentAreaProps {
   children: React.ReactNode;
@@ -47,6 +47,10 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
             
             <div className="border-l border-gray-600 pl-4">
               <ModelSelector />
+            </div>
+            
+            <div className="border-l border-gray-600 pl-4">
+              <TokenCounter userId="demo-user" compact={true} />
             </div>
             
             <div className="border-l border-gray-600 pl-4">
