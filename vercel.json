@@ -19,42 +19,41 @@
     {
       "source": "/(.*)",
       "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options", 
-          "value": "DENY"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "origin-when-cross-origin"
-        }
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "origin-when-cross-origin" }
       ]
     },
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, x-cron-secret, x-user-id" }
       ]
     }
   ],
   "rewrites": [
+    { "source": "/webhooks/(.*)", "destination": "/api/webhooks/$1" }
+  ],
+  "crons": [
     {
-      "source": "/webhooks/(.*)",
-      "destination": "/api/webhooks/$1"
+      "path": "/api/orchestrator/daily-run",
+      "schedule": "0 0 * * *",
+      "headers": { "x-cron-secret": "@cron-secret" },
+      "timezone": "Europe/Zurich"
+    },
+    {
+      "path": "/api/orchestrator/weekly-run",
+      "schedule": "0 9 * * 1",
+      "headers": { "x-cron-secret": "@cron-secret" },
+      "timezone": "Europe/Zurich"
+    },
+    {
+      "path": "/api/orchestrator/monthly-run",
+      "schedule": "0 10 1 * *",
+      "headers": { "x-cron-secret": "@cron-secret" },
+      "timezone": "Europe/Zurich"
     }
   ],
   "cleanUrls": true,
