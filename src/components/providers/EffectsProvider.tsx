@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useEffectsStore } from '../../../lib/stores/effectsStore'
 import { useAuthStore } from '../../../lib/stores/authStore'
 import dynamic from 'next/dynamic'
+import React from 'react'
 
 // Динамический импорт LevelUpAnimation только на клиентской стороне
 const LevelUpAnimation = dynamic(() => import('../effects/LevelUpAnimation'), {
@@ -37,19 +38,20 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
   
   const { isAuthenticated, generateDemoUser } = useAuthStore()
 
+  // One-time guard to avoid any chance of repeated scheduling
+  const demoInitDoneRef = React.useRef(false)
+
   // Автоинициализация demo пользователя при первом запуске
   useEffect(() => {
     if (!isClient) return
-    
-    if (!isAuthenticated) {
-      // Автоматически создаем demo пользователя для первого опыта
-      const timer = setTimeout(() => {
-        generateDemoUser()
-      }, 1000) // Небольшая задержка для плавности UX
-      
-      return () => clearTimeout(timer)
-    }
-  }, [isClient, isAuthenticated, generateDemoUser])
+    if (isAuthenticated) return
+    if (demoInitDoneRef.current) return
+    demoInitDoneRef.current = true
+    const timer = setTimeout(() => {
+      generateDemoUser()
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [isClient, isAuthenticated])
 
   // Глобальные горячие клавиши для тестирования
   useEffect(() => {
