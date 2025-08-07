@@ -6,6 +6,7 @@ import { useUIStore } from '../../../lib/stores/uiStore'
 import AuthButton from '../auth/AuthButton'
 import ModelSelector from '../ai/ModelSelector'
 import TokenCounterSimple from '../payments/TokenCounterSimple'
+import { useCurrentUserId } from '../../../lib/stores/authStore'
 
 interface MainContentAreaProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface MainContentAreaProps {
 
 export default function MainContentArea({ children }: MainContentAreaProps) {
   const { activeView, setActiveView } = useUIStore()
+  const userId = useCurrentUserId() || 'anonymous'
   
   return (
     <main className="flex-1 bg-gray-900 relative overflow-hidden">
@@ -50,11 +52,11 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
             </div>
             
             <div className="border-l border-gray-600 pl-4">
-              <TokenCounterSimple userId="demo-user" compact={true} />
+              <TokenCounterSimple userId={userId} compact={true} />
             </div>
             
             <div className="border-l border-gray-600 pl-4">
-              <span className="text-xs text-gray-400">Payment API готов</span>
+              <span className="text-xs text-gray-400">{userId !== 'anonymous' ? 'Вход выполнен' : 'Гость'}</span>
             </div>
             
             <div className="border-l border-gray-600 pl-4">

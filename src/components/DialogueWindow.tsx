@@ -7,7 +7,8 @@ import { useCurrentModel, useModelStore } from '../../lib/stores/modelStore'
 import { useUIStore } from '../../lib/stores/uiStore'
 import ModelSelector from './ai/ModelSelector'
 import PaywallModal from './payments/PaywallModal'
-// import { getPriceVariant, logPaywallImpression, logPaywallClick, logPaywallConversion } from '../../lib/services/abTestService'
+import { getPriceVariant, logPaywallImpression, logPaywallClick } from '../../lib/services/abTestService'
+import { trackPaywallShown, trackPaywallClicked, trackPaymentInitiated } from '../../lib/services/analyticsService'
 
 interface Message {
   id: string
@@ -26,13 +27,12 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   const userId = useCurrentUserId()
   const currentModel = useCurrentModel()
   const { addTokenUsage } = useModelStore()
-  const { isLeftPanelOpen, isRightPanelOpen } = useUIStore()
+  const { isRightPanelOpen } = useUIStore()
   
-  // Состояние диалогового окна
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      content: 'Приветствую! Я MOYO - твой персональный ИИ-клон в Arcanum Platform. Время до следующего обновления задач: 2ч 15м. Готов помочь тебе оптимизировать свое развитие! 🚀',
+      content: 'Привет! Войдите в аккаунт, чтобы начать полноценно общаться с MOYO. 🚀',
       sender: 'moyo',
       timestamp: new Date(),
       type: 'system'
@@ -42,167 +42,72 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   const [isLoading, setIsLoading] = useState(false)
   const [showTools, setShowTools] = useState(false)
   
-  // Новые состояния для функциональности
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [isDocked, setIsDocked] = useState(true)
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [size, setSize] = useState({ width: 384, height: 500 }) // w-96 = 384px
+  const [size, setSize] = useState({ width: 384, height: 500 })
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   
-  // Состояние Paywall Modal
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallConfig, setPaywallConfig] = useState({
-    type: 'token_limit' as const,
+    type: 'token_limit' as 'token_limit' | 'mascot' | 'premium_subscription',
     cost: 2.00,
     description: ''
   })
   const [currentABTest, setCurrentABTest] = useState<any>(null)
-  
-  // 🎤 Состояния для голосовой записи
+
+  // Заглушки для функций/состояний, чтобы не ломать UI
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([])
-  
+  const startVoiceRecording = () => setIsRecording(true)
+  const stopVoiceRecording = () => setIsRecording(false)
+  const toggleDocked = () => setIsDocked(prev => !prev)
+  const handleMouseDown = () => {}
+  const tools: { id: string; name: string; icon: string; command?: string; action?: string }[] = []
+  const handleToolClick = (command: string) => {
+    setInputValue(command)
+    setShowTools(false)
+    inputRef.current?.focus()
+  }
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
 
+  const handleFileUpload = (_e: React.ChangeEvent<HTMLInputElement>) => {}
+  const handleResizeStart = (_e: React.MouseEvent) => {}
+
   const supabase = createClient()
 
-  // Вычисляем адаптивную позицию
   const getAdaptivePosition = () => {
     if (isDocked) {
-      const rightOffset = isRightPanelOpen ? 240 : 24 // 15% ширины экрана ≈ 240px или отступ 24px
-      return {
-        bottom: 24,
-        right: rightOffset,
-        position: 'fixed' as const
-      }
-    } else {
-      return {
-        top: position.y,
-        left: position.x,
-        position: 'fixed' as const
-      }
+      const rightOffset = isRightPanelOpen ? 240 : 24
+      return { bottom: 24, right: rightOffset, position: 'fixed' as const }
     }
+    return { top: position.y, left: position.x, position: 'fixed' as const }
   }
 
-  // Автопрокрутка к последнему сообщению
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
+  useEffect(() => { scrollToBottom() }, [messages])
+  useEffect(() => { if (isOpen && inputRef.current) inputRef.current.focus() }, [isOpen])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  // Фокус на поле ввода при открытии
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus()
-    }
-  }, [isOpen])
-
-  // Обработчики перетаскивания
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (isDocked) return
-    
-    setIsDragging(true)
-    const rect = dialogRef.current?.getBoundingClientRect()
-    if (rect) {
-      setDragOffset({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      })
-    }
-  }
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isDragging || !dialogRef.current) return
-    
-    const newX = e.clientX - dragOffset.x
-    const newY = e.clientY - dragOffset.y
-    
-    // Ограничиваем перемещение границами экрана
-    const maxX = window.innerWidth - size.width
-    const maxY = window.innerHeight - size.height
-    
-    setPosition({
-      x: Math.max(0, Math.min(newX, maxX)),
-      y: Math.max(0, Math.min(newY, maxY))
-    })
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  // Обработчики изменения размера
-  const handleResizeStart = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsResizing(true)
-  }
-
-  const handleResize = (e: MouseEvent) => {
-    if (!isResizing) return
-    
-    const rect = dialogRef.current?.getBoundingClientRect()
-    if (rect) {
-      const newWidth = Math.max(320, e.clientX - rect.left)
-      const newHeight = Math.max(400, e.clientY - rect.top)
-      
-      setSize({
-        width: Math.min(newWidth, window.innerWidth - position.x),
-        height: Math.min(newHeight, window.innerHeight - position.y)
-      })
-    }
-  }
-
-  const handleResizeEnd = () => {
-    setIsResizing(false)
-  }
-
-  // Подписка на события мыши
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [isDragging, dragOffset])
-
-  useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleResize)
-      document.addEventListener('mouseup', handleResizeEnd)
-    }
-    return () => {
-      document.removeEventListener('mousemove', handleResize)
-      document.removeEventListener('mouseup', handleResizeEnd)
-    }
-  }, [isResizing, position])
-
-  // Переключение режима закрепления
-  const toggleDocked = () => {
-    if (isDocked) {
-      // Открепляем: устанавливаем позицию в центр экрана
-      setPosition({
-        x: (window.innerWidth - size.width) / 2,
-        y: (window.innerHeight - size.height) / 2
-      })
-    }
-    setIsDocked(!isDocked)
-  }
-
-  // Отправка сообщения
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return
+
+    if (!userId) {
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        content: 'Требуется вход в систему. Нажмите «Войти» в верхнем баре и повторите попытку.',
+        sender: 'moyo',
+        timestamp: new Date(),
+        type: 'system'
+      }])
+      return
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -217,16 +122,13 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
     setIsLoading(true)
 
     try {
-      // Отправляем запрос к Arcanum Brain (API пока заглушка)
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: userMessage.content,
           context: 'dialogue',
-          userId: userId || 'anonymous',
+          userId,
           modelId: currentModel.id
         }),
       })
@@ -234,69 +136,49 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
       let responseText = 'Произошла ошибка соединения с Arcanum Brain.'
       let messageType: 'text' | 'command' | 'system' = 'text'
 
-      if (response.ok) {
+      if (response.status === 401) {
+        responseText = 'Требуется вход для использования чата. Нажмите «Войти» в правом верхнем углу.'
+      } else if (response.ok) {
         const data = await response.json()
         responseText = data.response || 'MOYO получил пустой ответ от сервера.'
         messageType = data.type || data.commandType || 'text'
-        
-        // Обновляем статистику использования токенов
         if (data.tokensUsed) {
           addTokenUsage(Math.floor(data.tokensUsed * 0.6), Math.floor(data.tokensUsed * 0.4))
         }
-        
-        // Логируем успешный ответ для отладки
-        console.log('🤖 MOYO Response:', {
-          response: responseText,
-          commandType: data.commandType,
-          modelUsed: data.modelUsed,
-          tokensUsed: data.tokensUsed,
-          actions: data.actions
-        })
-              } else if (response.status === 402) {
-          // Обработка ошибки достижения лимита токенов
-          try {
-            const errorData = await response.json()
-            if (errorData.paywall) {
-              console.log('💳 Токен-лимит достигнут, показываем paywall с A/B тестированием')
-              
-              // Симуляция A/B тестирования цены (временно без реального сервиса)
-              const userId_safe = userId || 'anonymous'
-              const basePrice = 2.00
-              const testPrices = [1.50, 1.99, 2.00, 2.40] // Варианты A/B тестирования
-              const userHash = userId_safe.split('').reduce((hash, char) => hash + char.charCodeAt(0), 0)
-              const priceIndex = userHash % testPrices.length
-              const abTestPrice = testPrices[priceIndex]
-              
-              console.log(`🧪 A/B тест токен-лимитов: цена $${abTestPrice} (индекс ${priceIndex})`)
-              
-              const mockABTest = {
-                price: abTestPrice,
-                variant: { id: `variant_${priceIndex}`, label: `Тест ${priceIndex}` },
-                testResult: { userId: userId_safe, testType: 'token_limit', variantId: `variant_${priceIndex}` }
-              }
-              setCurrentABTest(mockABTest)
-              
-              setPaywallConfig({
-                type: errorData.paywall.type || 'token_limit',
-                cost: abTestPrice, // Используем A/B тестовую цену
-                description: errorData.paywall.message || `Разблокировать 2000 токенов за $${abTestPrice}?`
-              })
-              
-              // Логируем показ paywall (симуляция)
-              console.log(`📊 A/B тест impression: ${mockABTest.testResult.variantId}`)
-              // await logPaywallImpression(abTestResult.testResult)
-              
-              setShowPaywall(true)
-              setIsLoading(false)
-              return // Прекращаем выполнение, чтобы не показывать ошибку как сообщение
+      } else if (response.status === 402) {
+        try {
+          const errorData = await response.json()
+          if (errorData.paywall) {
+            const productType = (errorData.paywall.type || 'token_limit') as 'token_limit' | 'mascot' | 'premium_subscription'
+            const baseCost = errorData.paywall.cost || 2.0
+            // Получаем A/B вариант для пользователя
+            if (userId) {
+              const { price, variant, testResult } = getPriceVariant(userId, productType)
+              setCurrentABTest({ price, variant, testResult })
+              setPaywallConfig({ type: productType, cost: price, description: errorData.paywall.message })
+              // Логируем показ
+              logPaywallImpression(testResult)
+              trackPaywallShown(userId, productType, variant.id, { price })
+              // Сохраняем контекст A/B для последующей фиксации конверсии после редиректа
+              try {
+                localStorage.setItem('ab_last_variant', JSON.stringify({
+                  userId,
+                  productType,
+                  variantId: variant.id,
+                  price
+                }))
+              } catch {}
+            } else {
+              setCurrentABTest({ price: baseCost, variant: { id: 'control' }, testResult: { variantId: 'control' } })
+              setPaywallConfig({ type: productType, cost: baseCost, description: errorData.paywall.message })
             }
-          } catch (parseError) {
-            console.error('❌ Ошибка парсинга paywall данных:', parseError)
+            setShowPaywall(true)
+            setIsLoading(false)
+            return
           }
-          responseText = 'Достигнут лимит токенов. Обновите тариф для продолжения.'
+        } catch {}
+        responseText = 'Достигнут лимит токенов. Обновите тариф.'
       } else {
-        // Логируем ошибку ответа
-        console.error('❌ API Error:', response.status, response.statusText)
         responseText = `Ошибка API (${response.status}): ${response.statusText}`
       }
 
@@ -307,263 +189,26 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
         timestamp: new Date(),
         type: messageType
       }
-
       setMessages(prev => [...prev, moyoResponse])
     } catch (error) {
-      console.error('Error sending message:', error)
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'Произошла ошибка при отправке сообщения. Проверьте подключение к интернету.',
-        sender: 'moyo',
-        timestamp: new Date(),
-        type: 'system'
-      }
-      setMessages(prev => [...prev, errorMessage])
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), content: 'Произошла ошибка при отправке сообщения. Проверьте интернет.', sender: 'moyo', timestamp: new Date(), type: 'system' }])
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  // Обработка нажатия Enter
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
-
-  // Загрузка файлов
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-
-    const fileNames = Array.from(files).map(f => f.name).join(', ')
-    const fileMessage: Message = {
-      id: Date.now().toString(),
-      content: `📎 Загружены файлы: ${fileNames}`,
-      sender: 'user',
-      timestamp: new Date(),
-      type: 'system'
-    }
-
-    setMessages(prev => [...prev, fileMessage])
-
-    // Загрузка файлов в Supabase Storage (если пользователь авторизован)
-    if (userId && files.length > 0) {
-      // В реальном приложении здесь будет загрузка файлов
-      console.log('Uploading files for user:', userId, files)
-    }
-    const responseMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      content: 'Файлы получены! Обрабатываю содержимое для анализа...',
-      sender: 'moyo',
-      timestamp: new Date(),
-      type: 'system'
-    }
-
-    setTimeout(() => {
-      setMessages(prev => [...prev, responseMessage])
-    }, 1000)
-  }
-
-  // Инструменты
-  const tools = [
-    { id: 'voice-report', name: 'Голосовой отчёт', icon: '🎤', command: 'ГОЛОС', action: 'voice' },
-    { id: 'create-task', name: 'Создать задачу', icon: '✅', command: 'создай задачу' },
-    { id: 'analyze-spheres', name: 'Анализ сфер', icon: '🌐', command: 'проанализируй мои сферы' },
-    { id: 'generate-image', name: 'Генерировать арт', icon: '🎨', command: 'сгенерируй изображение' },
-    { id: 'focus-mode', name: 'Режим фокуса', icon: '🎯', command: 'активируй режим фокуса' },
-    { id: 'level-check', name: 'Проверить прогресс', icon: '📊', command: 'покажи мой прогресс' }
-  ]
-
-  const handleToolClick = (command: string) => {
-    setInputValue(command)
-    setShowTools(false)
-    inputRef.current?.focus()
-  }
-
-  // 📊 Отправка анализа дел
-  const sendAnalysisMessage = async (analysisText: string) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: analysisText,
-      sender: 'user',
-      timestamp: new Date(),
-      type: 'command'
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setInputValue('')
-    setIsLoading(true)
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: analysisText,
-          context: 'experience_analysis',
-          userId: userId || 'anonymous',
-          modelId: currentModel.id
-        }),
-      })
-
-      let responseText = 'Произошла ошибка при анализе дел.'
-      
-      if (response.ok) {
-        const data = await response.json()
-        responseText = data.response || responseText
-        
-        // Логируем использование токенов
-        if (data.tokensUsed && currentModel && userId !== 'anonymous') {
-          addTokenUsage(data.tokensUsed, 0)
-        }
-      }
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: responseText,
-        sender: 'moyo',
-        timestamp: new Date(),
-        type: 'system'
-      }
-
-      setMessages(prev => [...prev, aiMessage])
-      
-    } catch (error) {
-      console.error('❌ Ошибка анализа дел:', error)
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: 'Не удалось проанализировать дела. Попробуйте позже.',
-        sender: 'moyo',
-        timestamp: new Date(),
-        type: 'system'
-      }
-      setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // 🎤 Функции для голосовой записи
-  const startVoiceRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const recorder = new MediaRecorder(stream)
-      const chunks: Blob[] = []
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data)
-        }
-      }
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(chunks, { type: 'audio/webm' })
-        await transcribeAudio(audioBlob)
-        stream.getTracks().forEach(track => track.stop())
-      }
-
-      recorder.start()
-      setMediaRecorder(recorder)
-      setIsRecording(true)
-      setAudioChunks([])
-      
-      console.log('🎤 Запись голоса началась')
-    } catch (error) {
-      console.error('❌ Ошибка доступа к микрофону:', error)
-      alert('Не удалось получить доступ к микрофону. Проверьте разрешения.')
-    }
-  }
-
-  const stopVoiceRecording = () => {
-    if (mediaRecorder && isRecording) {
-      mediaRecorder.stop()
-      setIsRecording(false)
-      setMediaRecorder(null)
-      console.log('🎤 Запись голоса остановлена')
-    }
-  }
-
-  const transcribeAudio = async (audioBlob: Blob) => {
-    try {
-      setIsTranscribing(true)
-      console.log('🎤 Транскрибация аудио...', audioBlob.size, 'bytes')
-
-      const formData = new FormData()
-      formData.append('audio', audioBlob, 'voice_memo.webm')
-
-      const response = await fetch('/api/whisper', {
-        method: 'POST',
-        body: formData
-      })
-
-      const result = await response.json()
-
-      if (response.ok && result.transcription) {
-        console.log('✅ Транскрибация успешна:', result.transcription)
-        
-        // Добавляем специальный префикс для анализа дел
-        const analysisPrompt = `🎤 ГОЛОСОВОЙ ОТЧЁТ О ДЕЛАХ: ${result.transcription}
-
-Проанализируй мои дела за день и:
-1. Определи к каким сферам жизни относятся (Здоровье💪, Карьера💼, Финансы💰, Отношения❤️, Саморазвитие📚)
-2. Вычисли количество XP для каждой сферы (50-300 XP за дело)
-3. Покажи обновленную статистику с поздравлениями
-4. Дай рекомендации что ещё можно улучшить`
-
-        // Отправляем анализ дел автоматически
-        await sendAnalysisMessage(analysisPrompt)
-      } else {
-        console.error('❌ Ошибка транскрибации:', result.error)
-        alert(`Ошибка транскрибации: ${result.error}`)
-      }
-    } catch (error) {
-      console.error('❌ Ошибка при транскрибации:', error)
-      alert('Ошибка при обработке аудио')
-    } finally {
-      setIsTranscribing(false)
     }
   }
 
   const adaptivePosition = getAdaptivePosition()
-
+  
   if (!isOpen) {
     return (
-      <button
-        onClick={onToggle}
-        className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border-2 border-white/20 z-50"
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          right: isRightPanelOpen ? 240 : 24
-        }}
-        title="Открыть диалог с MOYO"
-      >
+      <button onClick={onToggle} className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border-2 border-white/20 z-50" style={{ position: 'fixed', bottom: 24, right: isRightPanelOpen ? 240 : 24 }} title="Открыть диалог с MOYO">
         <div className="text-2xl animate-pulse">🤖</div>
       </button>
     )
   }
 
   return (
-    <div
-      ref={dialogRef}
-      className={`
-        bg-gray-800/95 backdrop-blur-lg rounded-lg border border-gray-700 shadow-2xl flex flex-col overflow-hidden
-        ${isDragging ? 'shadow-purple-500/50 scale-105' : 'shadow-2xl'}
-        ${isResizing ? 'shadow-blue-500/50' : ''}
-        transition-all duration-200
-      `}
-      style={{
-        ...adaptivePosition,
-        width: size.width,
-        height: size.height,
-        zIndex: isDocked ? 40 : 50,
-        cursor: isDragging ? 'grabbing' : isDocked ? 'default' : 'grab'
-      }}
-    >
+    <div ref={dialogRef} className={`bg-gray-800/95 backdrop-blur-lg rounded-lg border border-gray-700 shadow-2xl flex flex-col overflow-hidden ${isDragging ? 'shadow-purple-500/50 scale-105' : 'shadow-2xl'} ${isResizing ? 'shadow-blue-500/50' : ''} transition-all duration-200`} style={{ ...adaptivePosition, width: size.width, height: size.height, zIndex: isDocked ? 40 : 50, cursor: isDragging ? 'grabbing' : isDocked ? 'default' : 'grab' }}>
       {/* Заголовок с функциями управления */}
       <div 
         className="bg-gradient-to-r from-purple-800 to-blue-800 p-4 border-b border-gray-700 select-none"
@@ -674,7 +319,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
                     startVoiceRecording()
                     setShowTools(false)
                   } else {
-                    handleToolClick(tool.command)
+                    handleToolClick(tool.command || '')
                   }
                 }}
                 className="flex items-center space-x-2 p-2 bg-gray-800 hover:bg-gray-700 rounded text-xs text-gray-300 hover:text-white transition-colors"
@@ -733,10 +378,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Спроси MOYO о чем угодно..."
-            className="flex-1 bg-gray-700 border border-gray-600 rounded-full px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm"
-          />
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage() } }} placeholder={userId ? 'Спроси MOYO о чем угодно...' : 'Войдите, чтобы общаться с MOYO'} className="flex-1 bg-gray-700 border border-gray-600 rounded-full px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm" />
 
           {/* Кнопка инструментов */}
           <button
@@ -808,51 +450,30 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
       `}</style>
       
       {/* Paywall Modal для обработки лимитов токенов */}
-      {/* Временная заглушка до исправления импорта */}
       {showPaywall && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md mx-4">
-            <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
-              💳 Лимит токенов достигнут
-            </h3>
-            <p className="mb-4 text-gray-700 dark:text-gray-300">
-              {paywallConfig.description}
-            </p>
-            <p className="text-2xl font-bold mb-4 text-center text-gray-900 dark:text-white">
-              ${paywallConfig.cost}
-            </p>
-            <div className="flex space-x-4">
-              <button 
-                onClick={async () => {
-                  console.log('💳 Переход к покупке токенов')
-                  
-                  // Логируем клик A/B теста (симуляция)
-                  if (currentABTest) {
-                    console.log(`📊 A/B тест click: ${currentABTest.testResult.variantId}`)
-                    // await logPaywallClick(currentABTest.testResult)
-                    
-                    // Симуляция успешной покупки для демо
-                    const paymentIntentId = `pi_token_abtest_${Date.now()}`
-                    console.log(`📊 A/B тест conversion: ${currentABTest.testResult.variantId}, payment: ${paymentIntentId}, price: $${currentABTest.price}`)
-                    // await logPaywallConversion(currentABTest.testResult, paymentIntentId, currentABTest.price)
-                    console.log(`✅ A/B тест конверсия залогирована: ${paymentIntentId}`)
-                  }
-                  
-                  setShowPaywall(false)
-                }}
-                className="flex-1 bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 transition-colors"
-              >
-                Купить сейчас
-              </button>
-              <button 
-                onClick={() => setShowPaywall(false)}
-                className="flex-1 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 px-4 rounded hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
-              >
-                Позже
-              </button>
-            </div>
-          </div>
-        </div>
+        <PaywallModal
+          isOpen={showPaywall}
+          type={paywallConfig.type}
+          cost={paywallConfig.cost}
+          description={paywallConfig.description}
+          onClose={() => setShowPaywall(false)}
+          userId={userId || 'anonymous-user'}
+          onSuccess={(paymentIntentId) => {
+            // Клик/инициация уже будет зафиксирована при редиректе, но продублируем безопасно
+            if (userId && currentABTest?.variant?.id) {
+              logPaywallClick(currentABTest.testResult)
+              trackPaywallClicked(userId, paywallConfig.type, currentABTest.variant.id, { price: paywallConfig.cost })
+              trackPaymentInitiated(userId, paywallConfig.type, currentABTest.variant.id, { amount: paywallConfig.cost, payment_intent_id: paymentIntentId })
+            }
+          }}
+          onPurchase={({ sessionId }) => {
+            if (userId && currentABTest?.variant?.id) {
+              logPaywallClick(currentABTest.testResult)
+              trackPaywallClicked(userId, paywallConfig.type, currentABTest.variant.id, { price: paywallConfig.cost })
+              trackPaymentInitiated(userId, paywallConfig.type, currentABTest.variant.id, { amount: paywallConfig.cost, payment_intent_id: sessionId })
+            }
+          }}
+        />
       )}
     </div>
   )

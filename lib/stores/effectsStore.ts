@@ -16,6 +16,11 @@ interface EffectsState {
   // Частицы и эффекты
   particlesEnabled: boolean
   
+  // Новый: Салют после оплаты
+  isFireworksActive: boolean
+  triggerFireworks: (durationMs?: number) => void
+  completeFireworks: () => void
+  
   // Запланированные награды
   scheduledRewards: ScheduledReward[]
   
@@ -86,6 +91,8 @@ export const useEffectsStore = create<EffectsState>((set, get) => ({
   soundEnabled: true,
   soundVolume: 0.7,
   particlesEnabled: true,
+  // Новый: салют флаг
+  isFireworksActive: false,
   scheduledRewards: [
     {
       id: 'reward-20',
@@ -124,6 +131,14 @@ export const useEffectsStore = create<EffectsState>((set, get) => ({
 
   completeLevelUp: () => {
     set({ isLevelUpActive: false })
+  },
+
+  // Новый: Салют
+  triggerFireworks: () => {
+    set({ isFireworksActive: true })
+  },
+  completeFireworks: () => {
+    set({ isFireworksActive: false })
   },
 
   // Управление фокусом

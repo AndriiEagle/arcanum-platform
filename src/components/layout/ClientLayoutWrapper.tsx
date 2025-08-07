@@ -3,6 +3,9 @@
 import dynamic from "next/dynamic";
 import ErrorBoundary from "../ErrorBoundary";
 import AuthProvider from "../auth/AuthProvider";
+import { useEffect } from 'react'
+import { useEffectsStore } from '../../../lib/stores/effectsStore'
+import { useTokenStore } from '../../../lib/stores/tokenStore'
 
 // Динамические импорты компонентов для избежания SSR проблем
 const SidePanel = dynamic(() => import("@/components/layout/SidePanel"), {
@@ -24,6 +27,35 @@ interface ClientLayoutWrapperProps {
 }
 
 export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
+  const { triggerFireworks } = useEffectsStore()
+  const { setPremiumStatus, setLimit } = useTokenStore()
+
+  // Отслеживаем успех Stripe Checkout (?checkout=success)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    const checkout = url.searchParams.get('checkout')
+    const sessionId = url.searchParams.get('session_id')
+    if (checkout === 'success') {
+      // Подтверждение на бекэнде (best-effort)
+      fetch('/api/payments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId })
+      }).catch(() => {})
+
+      // Мгновенный UX: ставим премиум и лимит
+      setPremiumStatus(true)
+      setLimit(10000)
+      // Салют!
+      triggerFireworks()
+
+      // Чистим URL
+      const cleanUrl = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '')
+      window.history.replaceState({}, '', cleanUrl)
+    }
+  }, [setPremiumStatus, setLimit, triggerFireworks])
+
   return (
     <ErrorBoundary>
       <AuthProvider>

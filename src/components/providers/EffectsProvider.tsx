@@ -9,6 +9,10 @@ import dynamic from 'next/dynamic'
 const LevelUpAnimation = dynamic(() => import('../effects/LevelUpAnimation'), {
   ssr: false
 })
+// Динамический импорт Fireworks
+const Fireworks = dynamic(() => import('../effects/Fireworks'), {
+  ssr: false
+})
 
 interface EffectsProviderProps {
   children: React.ReactNode
@@ -26,7 +30,9 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
     isLevelUpActive, 
     currentLevel, 
     completeLevelUp,
-    triggerLevelUp 
+    triggerLevelUp, 
+    isFireworksActive, 
+    completeFireworks
   } = useEffectsStore()
   
   const { isAuthenticated, generateDemoUser } = useAuthStore()
@@ -74,6 +80,12 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
         isActive={isLevelUpActive}
         newLevel={currentLevel}
         onComplete={completeLevelUp}
+      />
+
+      {/* Глобальный салют (после оплаты) */}
+      <Fireworks
+        isActive={isFireworksActive}
+        onComplete={completeFireworks}
       />
     </>
   )

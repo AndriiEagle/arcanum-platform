@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { createClient } from '../../../../lib/supabase/client'
+import { createServerClient as createClient } from '../../../../lib/supabase/server'
 import { logTokenUsage, getUserTokenUsage } from '../../../../lib/services/tokenService'
 import { calculateCost } from '../../../../lib/config/aiModels'
 
@@ -58,16 +58,7 @@ function detectCommandType(message: string): string {
 // Получение контекста пользователя из Supabase
 async function getUserContext(userId: string): Promise<string> {
   try {
-    if (!userId || userId === 'anonymous') {
-      return `
-      Пользователь: Гость (не авторизован)
-      Статус: Demo режим
-      Доступные функции: Базовый диалог, генерация изображений
-      Для полного функционала требуется авторизация
-      `
-    }
-
-    // Попытка загрузить реальные данные пользователя
+    // Здесь больше не поддерживаем anonymous
     const supabase = createClient()
     
     // Загружаем статистики пользователя
@@ -84,25 +75,22 @@ async function getUserContext(userId: string): Promise<string> {
       .eq('user_id', userId)
       .eq('is_active', true)
       
-    // Если нет данных в БД, используем демо-контекст с реальным userId
     const contextData = userStats || {
-      level: 15,
-      current_xp: 2340,
-      next_level_xp: 3000,
-      energy: 85
+      level: 1,
+      current_xp: 0,
+      next_level_xp: 100,
+      energy: 100
     }
     
     const activeSpheres = (spheres && spheres.length > 0)
       ? spheres.map((s: { sphere_name: string; health_percentage: number }) => `${s.sphere_name} (${s.health_percentage}%)`).join(', ')
-      : 'Здоровье (78%), Карьера (92%), Финансы (88%)'
+      : 'Здоровье (50%), Карьера (50%), Финансы (50%)'
     
     const userContext = `
     Пользователь ID: ${userId}
     Уровень: ${contextData.level} (${contextData.current_xp?.toLocaleString()} / ${contextData.next_level_xp?.toLocaleString()} XP)
     Энергия: ${contextData.energy}%
     Активные сферы: ${activeSpheres}
-    Текущие задачи: Медитация, Код-ревью, Тренировка
-    Активные баффы: Бодрость, Фокус
     `
     
     return userContext.trim()
@@ -112,64 +100,21 @@ async function getUserContext(userId: string): Promise<string> {
   }
 }
 
-// Обработка специальных команд
-async function processSpecialCommands(
-  message: string, 
-  aiResponse: string, 
-  userId: string, 
-  commandType: string
-): Promise<{ text: string; actions?: Record<string, unknown> }> {
-  
-  switch (commandType) {
-    case 'create_button':
-      return {
-        text: `${aiResponse}\n\n🔘 Button Programming Agent активирован! Для создания кнопки мне нужны детали: название, функция и расположение.`,
-        actions: { type: 'create_button', data: { message } }
-      }
-      
-    case 'create_task':
-      return {
-        text: `${aiResponse}\n\n✅ Task Assessor Agent готов создать задачу! Уточните: в какой сфере, приоритет и дедлайн?`,
-        actions: { type: 'create_task', data: { message } }
-      }
-      
-    case 'analyze_spheres':
-      return {
-        text: `${aiResponse}\n\n🌐 Анализ 12 сфер жизни:\n• Топ-сферы: Карьера (92%), Финансы (88%)\n• Требуют внимания: Хобби (45%), Путешествия (32%)\n• Рекомендация: сфокусируйтесь на повышении Хобби до 60%`,
-        actions: { type: 'analyze_spheres', data: { userId } }
-      }
-      
-    case 'focus_mode':
-      return {
-        text: `${aiResponse}\n\n🎯 Global Design Agent готов изменить дизайн! На какой сфере сфокусируемся? Это изменит цветовую схему всей платформы.`,
-        actions: { type: 'focus_mode', data: { message } }
-      }
-      
-    case 'generate_image':
-      return {
-        text: `${aiResponse}\n\n🎨 Mascot Generator Agent активирован! Какой стиль и тематику предпочитаете для генерации?`,
-        actions: { type: 'generate_image', data: { message } }
-      }
-      
-    case 'show_progress':
-      return {
-        text: `${aiResponse}\n\n📊 Ваш текущий прогресс:\n• Уровень: 15 (+73% до следующего)\n• Энергия: 85% (отличный показатель!)\n• Сферы выше 80%: 3 из 12\n• Следующий milestone: Уровень 16 через 2-3 дня`,
-        actions: { type: 'show_progress', data: { userId } }
-      }
-      
-    default:
-      return {
-        text: aiResponse
-      }
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
-    const { message, userId = 'anonymous', modelId = 'gpt-4o-mini' } = await request.json()
+    const { message, userId, modelId = 'gpt-4o-mini' } = await request.json()
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+    }
+
+    // Требуем авторизацию (никаких anonymous)
+    if (!userId || userId === 'anonymous') {
+      return NextResponse.json({
+        error: 'AUTH_REQUIRED',
+        message: 'Требуется вход для использования чата',
+        login_url: '/auth/login'
+      }, { status: 401 })
     }
 
     if (!process.env.OPENAI_API_KEY) {
@@ -178,68 +123,43 @@ export async function POST(request: NextRequest) {
 
     console.log('Arcanum Brain processing message:', message, 'for user:', userId)
 
-    // Загружаем контекст пользователя из Supabase (пока заглушка)
     const userContext = await getUserContext(userId)
 
-    // Определяем тип команды
     const commandType = detectCommandType(message)
     
     let systemPrompt = ARCANUM_BRAIN_PROMPT
-    
-    // Добавляем контекст пользователя к промпту
     if (userContext) {
       systemPrompt += `\n\nКОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:\n${userContext}`
     }
 
     // Проверяем токен-лимиты перед вызовом OpenAI API (монетизация)
-    if (userId !== 'anonymous') {
-      try {
-        const userTokensUsed = await getUserTokenUsage(userId)
-        
-        // Определяем статус пользователя (пока заглушка, позже будет из БД)
-        const isPremium = false // TODO: получать из user_stats или auth metadata
-        const tokenLimit = isPremium ? 10000 : 1000
-        
-        if (userTokensUsed > tokenLimit) {
-          console.log(`🚫 Token limit exceeded for user ${userId}: ${userTokensUsed}/${tokenLimit}`)
-          
-          return NextResponse.json({
-            error: 'Token limit reached',
-            upgrade_url: '/upgrade',
-            tokens_used: userTokensUsed,
-            limit: tokenLimit,
-            paywall: {
-              type: 'token_limit',
-              cost: 2.00,
-              message: 'Разблокировать 2000 токенов за $2?',
-              features: ['Дополнительные 2000 токенов', 'Приоритетная обработка', '24 часа доступа']
-            }
-          }, { status: 402 })
-        } else if (userTokensUsed > tokenLimit * 0.8) {
-          // Предупреждение при 80% лимита
-          console.log(`⚠️ Token usage warning for user ${userId}: ${userTokensUsed}/${tokenLimit} (${Math.round((userTokensUsed/tokenLimit)*100)}%)`)
-        }
-      } catch (error) {
-        console.error('Error checking token limits:', error)
-        // Продолжаем выполнение при ошибке проверки лимитов
+    try {
+      const userTokensUsed = await getUserTokenUsage(userId)
+      const isPremium = false // TODO: получать из user_stats или auth metadata
+      const tokenLimit = isPremium ? 10000 : 1000
+      
+      if (userTokensUsed > tokenLimit) {
+        console.log(`🚫 Token limit exceeded for user ${userId}: ${userTokensUsed}/${tokenLimit}`)
+        return NextResponse.json({
+          error: 'TOKEN_LIMIT',
+          tokens_used: userTokensUsed,
+          limit: tokenLimit,
+          paywall: {
+            type: 'token_limit',
+            cost: 2.00,
+            message: 'Разблокировать 2000 токенов за $2?'
+          }
+        }, { status: 402 })
       }
+    } catch (error) {
+      console.error('Error checking token limits:', error)
     }
 
-    // Логируем использование модели
-    console.log(`🤖 Используется модель: ${modelId} для пользователя ${userId}`)
-    
-    // Отправляем запрос к OpenAI с выбранной моделью
     const response = await openai.chat.completions.create({
       model: modelId,
       messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        {
-          role: "user",
-          content: message
-        }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
       ],
       max_tokens: getMaxTokensForModel(modelId),
       temperature: 0.7,
@@ -247,8 +167,7 @@ export async function POST(request: NextRequest) {
 
     const aiResponse = response.choices[0]?.message?.content || 'Извините, не смог обработать ваш запрос.'
 
-    // Логируем использование токенов для монетизации
-    if (userId !== 'anonymous' && response.usage) {
+    if (response.usage) {
       try {
         await logTokenUsage({
           user_id: userId,
@@ -261,16 +180,11 @@ export async function POST(request: NextRequest) {
         console.log(`💰 Logged ${response.usage.total_tokens} tokens for user ${userId}`)
       } catch (error) {
         console.error('Failed to log token usage:', error)
-        // Не прерываем выполнение если логирование не удалось
       }
     }
 
-    // Обрабатываем специальные команды
-    const processedResponse = await processSpecialCommands(message, aiResponse, userId, commandType)
-
     return NextResponse.json({ 
-      response: processedResponse.text,
-      actions: processedResponse.actions,
+      response: aiResponse,
       commandType,
       modelUsed: modelId,
       tokensUsed: response.usage?.total_tokens || 0

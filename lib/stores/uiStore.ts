@@ -31,7 +31,7 @@ interface UIState {
 export const useUIStore = create<UIState>((set, get) => ({
   // Изначально обе панели открыты (15% ширины)
   isLeftPanelOpen: true,
-  isRightPanelOpen: true,
+  isRightPanelOpen: false,
   
   // По умолчанию активен режим дашборда
   activeView: 'dashboard',
