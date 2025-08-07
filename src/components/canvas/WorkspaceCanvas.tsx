@@ -6,6 +6,7 @@ import { DndContext, DragEndEvent } from '@dnd-kit/core'
 import debounce from 'lodash.debounce'
 import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
+import { useUIStore } from '../../../lib/stores/uiStore'
 import DraggableWidget from './DraggableWidget'
 import HeaderImageWidget from '../widgets/HeaderImageWidget'
 import StatsColumnWidget from '../widgets/StatsColumnWidget'
@@ -19,6 +20,8 @@ interface Widget {
 
 export default function WorkspaceCanvas() {
   const userId = useCurrentUserId()
+  const { middleMousePanEnabled } = useUIStore()
+  const [isMiddlePanning, setIsMiddlePanning] = useState(false)
   
   // Состояние для масштабирования
   const [transformState, setTransformState] = useState({
@@ -261,7 +264,7 @@ export default function WorkspaceCanvas() {
             excluded: []
           }}
           panning={{ 
-            disabled: false,
+            disabled: middleMousePanEnabled ? !isMiddlePanning : false,
             velocityDisabled: true,
             activationKeys: [],
             excluded: ['.draggable-widget', '.widget-content', 'button', 'input', 'textarea']
@@ -284,7 +287,12 @@ export default function WorkspaceCanvas() {
             wrapperClass="w-full h-full"
             contentClass="w-full h-full relative"
           >
-            <div className="relative min-w-[200vw] min-h-[200vh] bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900/20">
+            <div
+              className="relative min-w-[200vw] min-h-[200vh] bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900/20"
+              onMouseDown={(e)=>{ if (middleMousePanEnabled && e.button === 1) setIsMiddlePanning(true) }}
+              onMouseUp={(e)=>{ if (e.button === 1) setIsMiddlePanning(false) }}
+              onMouseLeave={()=> setIsMiddlePanning(false)}
+            >
               {/* Сетка для визуального ориентира */}
               <div className="absolute inset-0 opacity-10">
                 <svg width="100%" height="100%" className="w-full h-full">

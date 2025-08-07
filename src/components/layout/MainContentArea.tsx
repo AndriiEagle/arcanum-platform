@@ -13,7 +13,7 @@ interface MainContentAreaProps {
 }
 
 export default function MainContentArea({ children }: MainContentAreaProps) {
-  const { activeView, setActiveView } = useUIStore()
+  const { activeView, setActiveView, middleMousePanEnabled, toggleMiddleMousePan, autoGenerateHeaderImage, toggleAutoGenerateHeaderImage } = useUIStore()
   const userId = useCurrentUserId() || 'anonymous'
   
   return (
@@ -46,6 +46,24 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
             >
               🌐 Режим Резонанса
             </button>
+            
+            {/* Тогглы UX */}
+            <div className="border-l border-gray-600 pl-4 flex items-center space-x-3">
+              <button
+                onClick={toggleMiddleMousePan}
+                className={`px-3 py-1 rounded text-xs ${middleMousePanEnabled ? 'bg-gray-700 text-green-300' : 'bg-gray-700 text-gray-300'}`}
+                title="Перемещение средним колесом"
+              >
+                🖱️ Pan {middleMousePanEnabled ? 'ON' : 'OFF'}
+              </button>
+              <button
+                onClick={toggleAutoGenerateHeaderImage}
+                className={`px-3 py-1 rounded text-xs ${autoGenerateHeaderImage ? 'bg-gray-700 text-green-300' : 'bg-gray-700 text-gray-300'}`}
+                title="Автогенерация шапки"
+              >
+                🎨 Auto {autoGenerateHeaderImage ? 'ON' : 'OFF'}
+              </button>
+            </div>
             
             <div className="border-l border-gray-600 pl-4">
               <ModelSelector />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useUIStore } from '../../../lib/stores/uiStore'
 
 interface HeaderImageWidgetProps {
   onError?: (error: string) => void
@@ -11,6 +12,7 @@ export default function HeaderImageWidget({ onError }: HeaderImageWidgetProps = 
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentPrompt, setCurrentPrompt] = useState<string>('')
+  const { autoGenerateHeaderImage } = useUIStore()
 
   const defaultPrompt = "Эпический цифровой арт, изображающий программиста и писателя, который играет на гитаре на вершине горы, в стиле киберпанк"
 
@@ -49,7 +51,9 @@ export default function HeaderImageWidget({ onError }: HeaderImageWidgetProps = 
 
   // Генерируем изображение при первой загрузке
   useEffect(() => {
-    generateImage()
+    if (autoGenerateHeaderImage) {
+      generateImage()
+    }
   }, [])
 
   return (

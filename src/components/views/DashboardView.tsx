@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import WorkspaceCanvas from '../canvas/WorkspaceCanvas'
-import DialogueWindow from '../DialogueWindow'
+import dynamic from 'next/dynamic'
+
+const WorkspaceCanvas = dynamic(() => import('../canvas/WorkspaceCanvas'), { ssr: false })
+const DialogueWindow = dynamic(() => import('../DialogueWindow'), { ssr: false })
 
 export default function DashboardView() {
   const [isDialogueOpen, setIsDialogueOpen] = useState(true)

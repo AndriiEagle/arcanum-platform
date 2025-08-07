@@ -10,6 +10,10 @@ interface UIState {
   
   // Состояние диалогового окна
   isDialogueOpen: boolean
+
+  // Тогглы UX
+  middleMousePanEnabled: boolean
+  autoGenerateHeaderImage: boolean
   
   // Действия для управления панелями
   toggleLeftPanel: () => void
@@ -26,6 +30,10 @@ interface UIState {
   // Управление диалоговым окном
   toggleDialogue: () => void
   setDialogue: (isOpen: boolean) => void
+
+  // Тогглы UX actions
+  toggleMiddleMousePan: () => void
+  toggleAutoGenerateHeaderImage: () => void
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -38,6 +46,10 @@ export const useUIStore = create<UIState>((set, get) => ({
   
   // Диалоговое окно открыто по умолчанию
   isDialogueOpen: true,
+
+  // Тогглы UX (дефолты)
+  middleMousePanEnabled: true,
+  autoGenerateHeaderImage: true,
   
   // Переключение состояния панелей
   toggleLeftPanel: () => set((state) => ({ 
@@ -93,4 +105,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   })),
   
   setDialogue: (isOpen: boolean) => set({ isDialogueOpen: isOpen }),
+
+  // Тогглы UX actions
+  toggleMiddleMousePan: () => set((state) => ({ middleMousePanEnabled: !state.middleMousePanEnabled })),
+  toggleAutoGenerateHeaderImage: () => set((state) => ({ autoGenerateHeaderImage: !state.autoGenerateHeaderImage })),
 })) 
