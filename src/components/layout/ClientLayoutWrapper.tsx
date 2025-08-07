@@ -39,8 +39,14 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
     const url = new URL(window.location.href)
     const checkout = url.searchParams.get('checkout')
     const sessionId = url.searchParams.get('session_id')
+    console.log('[DBG][ClientLayoutWrapper] effect run', {
+      checkout,
+      sessionId,
+      processed: processedCheckoutRef.current
+    })
     if (checkout === 'success' && !processedCheckoutRef.current) {
       processedCheckoutRef.current = true
+      console.log('[DBG][ClientLayoutWrapper] processing checkout success...')
       // Подтверждение на бекэнде (best-effort)
       fetch('/api/payments/confirm', {
         method: 'POST',
@@ -49,15 +55,18 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
       }).catch(() => {})
 
       // Мгновенный UX: ставим премиум и лимит
+      console.log('[DBG][ClientLayoutWrapper] setPremiumStatus(true), setLimit(10000)')
       setPremiumStatus(true)
       setLimit(10000)
       // Салют!
+      console.log('[DBG][ClientLayoutWrapper] triggerFireworks()')
       triggerFireworks()
 
       // Чистим URL
       url.searchParams.delete('checkout')
       url.searchParams.delete('session_id')
       const cleanUrl = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '')
+      console.log('[DBG][ClientLayoutWrapper] replaceState ->', cleanUrl)
       window.history.replaceState({}, '', cleanUrl)
     }
   }, [setPremiumStatus, setLimit, triggerFireworks])

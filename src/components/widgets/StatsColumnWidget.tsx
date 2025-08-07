@@ -44,6 +44,7 @@ interface Buff {
 
 export default function StatsColumnWidget() {
   const userId = useCurrentUserId()
+  console.log('[DBG][StatsColumnWidget] render', { userId })
   
   // Состояние для пользовательских статистик
   const [userStats, setUserStats] = useState<UserStats>({
@@ -100,6 +101,7 @@ export default function StatsColumnWidget() {
 
   // Функция загрузки данных сфер из Supabase
   const loadSpheresFromSupabase = useCallback(async () => {
+    console.log('[DBG][StatsColumnWidget] loadSpheresFromSupabase start', { userId })
     try {
       setIsLoading(true)
       if (!userId) {
@@ -119,6 +121,7 @@ export default function StatsColumnWidget() {
       }
 
       if (data && data.length > 0) {
+        console.log('[DBG][StatsColumnWidget] spheres loaded', data.length)
         const mappedSpheres = data.map((sphere: any) => ({
           id: sphere.id,
           name: sphere.sphere_name,
@@ -132,6 +135,7 @@ export default function StatsColumnWidget() {
     } catch (error) {
       console.error('Error in loadSpheresFromSupabase:', error)
     } finally {
+      console.log('[DBG][StatsColumnWidget] loadSpheresFromSupabase end')
       setIsLoading(false)
     }
   }, [userId])
@@ -242,12 +246,14 @@ export default function StatsColumnWidget() {
 
   // Загружаем данные при монтировании
   useEffect(() => {
+    console.log('[DBG][StatsColumnWidget] effect mount -> loadSpheresFromSupabase')
     loadSpheresFromSupabase()
   }, [loadSpheresFromSupabase])
 
   useEffect(() => {
     (async () => {
       if (!userId) return
+      console.log('[DBG][StatsColumnWidget] effect icons load for user', userId)
       const icons = await getSphereIcons(userId)
       setSphereIconUrls(icons)
     })()

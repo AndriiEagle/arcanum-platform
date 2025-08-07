@@ -15,6 +15,7 @@ interface MainContentAreaProps {
 export default function MainContentArea({ children }: MainContentAreaProps) {
   const { activeView, setActiveView, middleMousePanEnabled, toggleMiddleMousePan, autoGenerateHeaderImage, toggleAutoGenerateHeaderImage } = useUIStore()
   const userId = useCurrentUserId() || 'anonymous'
+  console.log('[DBG][MainContentArea] render', { activeView, userId })
   
   return (
     <main className="flex-1 bg-gray-900 relative overflow-hidden">
@@ -27,7 +28,7 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
           
           <div className="flex items-center space-x-4">
             <button 
-              onClick={() => setActiveView('dashboard')}
+              onClick={() => { console.log('[DBG][MainContentArea] setActiveView("dashboard")'); setActiveView('dashboard') }}
               className={`px-4 py-2 rounded text-sm font-medium transition-all duration-200 ${
                 activeView === 'dashboard'
                   ? 'bg-purple-600 text-white shadow-lg scale-105'
@@ -37,7 +38,7 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
               🎯 Режим Дашборда
             </button>
             <button 
-              onClick={() => setActiveView('resonance')}
+              onClick={() => { console.log('[DBG][MainContentArea] setActiveView("resonance")'); setActiveView('resonance') }}
               className={`px-4 py-2 rounded text-sm font-medium transition-all duration-200 ${
                 activeView === 'resonance'
                   ? 'bg-blue-600 text-white shadow-lg scale-105'
@@ -50,14 +51,14 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
             {/* Тогглы UX */}
             <div className="border-l border-gray-600 pl-4 flex items-center space-x-3">
               <button
-                onClick={toggleMiddleMousePan}
+                onClick={() => { console.log('[DBG][MainContentArea] toggleMiddleMousePan'); toggleMiddleMousePan() }}
                 className={`px-3 py-1 rounded text-xs ${middleMousePanEnabled ? 'bg-gray-700 text-green-300' : 'bg-gray-700 text-gray-300'}`}
                 title="Перемещение средним колесом"
               >
                 🖱️ Pan {middleMousePanEnabled ? 'ON' : 'OFF'}
               </button>
               <button
-                onClick={toggleAutoGenerateHeaderImage}
+                onClick={() => { console.log('[DBG][MainContentArea] toggleAutoGenerateHeaderImage'); toggleAutoGenerateHeaderImage() }}
                 className={`px-3 py-1 rounded text-xs ${autoGenerateHeaderImage ? 'bg-gray-700 text-green-300' : 'bg-gray-700 text-gray-300'}`}
                 title="Автогенерация шапки"
               >

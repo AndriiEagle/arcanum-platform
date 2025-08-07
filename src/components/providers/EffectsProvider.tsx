@@ -47,7 +47,9 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
     if (isAuthenticated) return
     if (demoInitDoneRef.current) return
     demoInitDoneRef.current = true
+    console.log('[DBG][EffectsProvider] schedule demo user init in 1s')
     const timer = setTimeout(() => {
+      console.log('[DBG][EffectsProvider] generating demo user...')
       generateDemoUser()
     }, 1000)
     return () => clearTimeout(timer)
@@ -61,6 +63,7 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
       // Ctrl + L = Trigger Level Up для тестирования
       if (e.ctrlKey && e.key === 'l') {
         e.preventDefault()
+        console.log('[DBG][EffectsProvider] hotkey Ctrl+L -> triggerLevelUp', currentLevel + 1)
         triggerLevelUp(currentLevel + 1)
       }
     }
@@ -81,13 +84,13 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
       <LevelUpAnimation
         isActive={isLevelUpActive}
         newLevel={currentLevel}
-        onComplete={completeLevelUp}
+        onComplete={() => { console.log('[DBG][EffectsProvider] completeLevelUp()'); completeLevelUp(); }}
       />
 
       {/* Глобальный салют (после оплаты) */}
       <Fireworks
         isActive={isFireworksActive}
-        onComplete={completeFireworks}
+        onComplete={() => { console.log('[DBG][EffectsProvider] completeFireworks()'); completeFireworks(); }}
       />
     </>
   )

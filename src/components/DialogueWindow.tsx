@@ -30,6 +30,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   const currentModel = useCurrentModel()
   const { addTokenUsage } = useModelStore()
   const { isRightPanelOpen } = useUIStore()
+  console.log('[DBG][DialogueWindow] render', { isOpen, userId, model: currentModel.id })
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -98,9 +99,11 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   useEffect(() => { if (isOpen && inputRef.current) inputRef.current.focus() }, [isOpen])
 
   const handleSendMessage = async () => {
+    console.log('[DBG][DialogueWindow] handleSendMessage click', { userId, isLoading })
     if (!inputValue.trim() || isLoading) return
 
     if (!userId) {
+      console.log('[DBG][DialogueWindow] not authenticated -> system notice')
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         content: 'Требуется вход в систему. Нажмите «Войти» в верхнем баре и повторите попытку.',
@@ -145,6 +148,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
         responseText = data.response || 'MOYO получил пустой ответ от сервера.'
         messageType = data.type || data.commandType || 'text'
         if (data.tokensUsed) {
+          console.log('[DBG][DialogueWindow] tokensUsed', data.tokensUsed)
           addTokenUsage(Math.floor(data.tokensUsed * 0.6), Math.floor(data.tokensUsed * 0.4))
         }
       } else if (response.status === 402) {
