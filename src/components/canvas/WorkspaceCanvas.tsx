@@ -66,7 +66,7 @@ export default function WorkspaceCanvas() {
   ])
 
   // Создаем Supabase клиент
-  const supabase = createClient()
+  // Убираем глобальное создание клиента; создаем локально в местах использования
 
   // Функция загрузки макета из Supabase
   const loadLayout = useCallback(async () => {
@@ -79,6 +79,7 @@ export default function WorkspaceCanvas() {
         setIsLoading(false)
         return
       }
+      const supabase = createClient()
       
       const { data, error } = await supabase
         .from('ui_layouts')
@@ -106,6 +107,7 @@ export default function WorkspaceCanvas() {
     if (!userId) return
     
     try {
+      const supabase = createClient()
       const layoutConfig = {
         widgets: widgetsToSave,
         lastUpdated: new Date().toISOString()
