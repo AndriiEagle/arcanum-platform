@@ -4,6 +4,8 @@ import { useUIStore } from '../../../lib/stores/uiStore'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
 import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase/client'
+import SettingsModal from '../modals/SettingsModal'
+import ScheduleEventModal from '../modals/ScheduleEventModal'
 
 interface SidePanelProps {
   position: 'left' | 'right';
@@ -46,6 +48,8 @@ export default function SidePanel({ position }: SidePanelProps) {
   const [categories, setCategories] = useState<Category[]>([])
   const [showAddButton, setShowAddButton] = useState(false)
   const [newButtonLabel, setNewButtonLabel] = useState('')
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false)
   
   const isOpen = position === 'left' ? isLeftPanelOpen : isRightPanelOpen
   const togglePanel = position === 'left' ? toggleLeftPanel : toggleRightPanel
@@ -68,7 +72,7 @@ export default function SidePanel({ position }: SidePanelProps) {
     try {
       const { data, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, health_percentage')
+        .select('id, sphere_name, sphere_code, health_percentage')
         .eq('user_id', userId)
         .order('sphere_name')
       
@@ -83,11 +87,12 @@ export default function SidePanel({ position }: SidePanelProps) {
           { id: '5', name: 'Саморазвитие', health_percentage: 73, icon: '📚' }
         ])
       } else if (data && data.length > 0) {
-        const mappedSpheres = data.map((sphere: { id: string; sphere_name: string; health_percentage: number }) => ({
+        const { getDisplayNameForCode, getIconForCode } = await import('../../../lib/core/life-spheres')
+        const mappedSpheres = data.map((sphere: { id: string; sphere_name: string; sphere_code?: string; health_percentage: number }) => ({
           id: sphere.id,
-          name: sphere.sphere_name,
+          name: sphere.sphere_code ? getDisplayNameForCode(sphere.sphere_code) : sphere.sphere_name,
           health_percentage: sphere.health_percentage,
-          icon: getSphereIcon(sphere.sphere_name)
+          icon: sphere.sphere_code ? getIconForCode(sphere.sphere_code) : getSphereIcon(sphere.sphere_name)
         }))
         setSpheres(mappedSpheres)
       } else {
@@ -181,11 +186,13 @@ export default function SidePanel({ position }: SidePanelProps) {
     // TODO: Сохранить в БД когда будет готова таблица programmable_buttons
   }
 
-  return (
-    <div className={`
+  const containerClass = `
       bg-gray-800 border-r border-gray-700 transition-all duration-300 ease-in-out relative
       ${isOpen ? 'w-[15%]' : 'w-[5%]'}
-    `}>
+    `
+
+  return (
+    <div className={containerClass}>
       {/* Кнопка переключения */}
       <button 
         onClick={togglePanel}
@@ -307,7 +314,10 @@ export default function SidePanel({ position }: SidePanelProps) {
             
             {/* Нижние кнопки настроек */}
             <div className="space-y-2">
-              <button className="w-full bg-gray-700 hover:bg-gray-600 p-2 rounded text-sm text-left transition-colors">
+              <button className="w-full bg-gray-700 hover:bg-gray-600 p-2 rounded text-sm text-left transition-colors" onClick={() => setIsScheduleOpen(true)}>
+                🗓️ Запланировать событие
+              </button>
+              <button className="w-full bg-gray-700 hover:bg-gray-600 p-2 rounded text-sm text-left transition-colors" onClick={() => setIsSettingsOpen(true)}>
                 ⚙️ Настройки
               </button>
               <button className="w-full bg-gray-700 hover:bg-gray-600 p-2 rounded text-sm text-left transition-colors">
@@ -335,6 +345,13 @@ export default function SidePanel({ position }: SidePanelProps) {
         )}
       </div>
       
+      {isSettingsOpen && (
+        <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      )}
+      {isScheduleOpen && (
+        <ScheduleEventModal isOpen={isScheduleOpen} onClose={() => setIsScheduleOpen(false)} />
+      )}
+
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;

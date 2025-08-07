@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
+import { declareTask, markDeclarationCompleted } from '../../../lib/services/disciplineService'
 
 interface Sphere {
   id: string
@@ -44,6 +45,25 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
   const [isLoading, setIsLoading] = useState(false)
   const [totalXPEarned, setTotalXPEarned] = useState(0)
 
+  // New: add-category/task modals
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+  const [addCategoryError, setAddCategoryError] = useState<string | null>(null)
+
+  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
+  const [newTaskName, setNewTaskName] = useState('')
+  const [newTaskXP, setNewTaskXP] = useState<number>(50)
+  const [newTaskPriority, setNewTaskPriority] = useState<'high' | 'medium' | 'low'>('medium')
+  const [isCreatingTask, setIsCreatingTask] = useState(false)
+  const [addTaskError, setAddTaskError] = useState<string | null>(null)
+
+  const [isDeclareOpen, setIsDeclareOpen] = useState(false)
+  const [declareTitle, setDeclareTitle] = useState('')
+  const [declareDue, setDeclareDue] = useState<string>('')
+  const [declaring, setDeclaring] = useState(false)
+  const [bindTaskId, setBindTaskId] = useState<string | null>(null)
+
   const userId = useCurrentUserId()
   const supabase = createClient()
 
@@ -80,7 +100,14 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
           progress: cat.progress || 0,
           total_tasks: cat.tasks?.length || 0,
           completed_tasks: cat.tasks?.filter((t: any) => t.is_completed).length || 0,
-          tasks: cat.tasks || [],
+          tasks: (cat.tasks || []).map((t:any)=>({
+            id: t.id,
+            name: t.task_name,
+            xp_reward: t.xp_reward,
+            priority: t.priority,
+            is_completed: t.is_completed,
+            category_id: t.category_id
+          })),
           mascot_url: cat.mascot_url
         }))
         setCategories(mappedCategories)
@@ -157,70 +184,19 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
     setSelectedCategory(fallbackData[0]?.id || '')
   }
 
-  const getDefaultCategoriesForSphere = (sphereName: string) => {
-    const baseCategories = {
-      'Здоровье': [
-        {
-          id: 'health-physical',
-          name: 'Физическая Активность',
-          progress: 65,
-          total_tasks: 8,
-          completed_tasks: 5,
-          tasks: [
-            { id: 'h1', name: 'Утренняя зарядка 20 мин', xp_reward: 50, priority: 'high' as const, is_completed: true, category_id: 'health-physical' },
-            { id: 'h2', name: 'Пробежка 3 км', xp_reward: 100, priority: 'high' as const, is_completed: false, category_id: 'health-physical' },
-            { id: 'h3', name: 'Силовая тренировка', xp_reward: 120, priority: 'medium' as const, is_completed: true, category_id: 'health-physical' }
-          ]
-        },
-        {
-          id: 'health-nutrition',
-          name: 'Питание и Рацион',
-          progress: 80,
-          total_tasks: 6,
-          completed_tasks: 5,
-          tasks: [
-            { id: 'h4', name: 'Составить план питания', xp_reward: 80, priority: 'high' as const, is_completed: true, category_id: 'health-nutrition' },
-            { id: 'h5', name: 'Пить 2л воды в день', xp_reward: 40, priority: 'medium' as const, is_completed: false, category_id: 'health-nutrition' }
-          ]
-        }
-      ],
-      'Карьера': [
-        {
-          id: 'career-skills',
-          name: 'Профессиональные Навыки',
-          progress: 92,
-          total_tasks: 5,
-          completed_tasks: 4,
-          tasks: [
-            { id: 'c1', name: 'Изучить новый фреймворк', xp_reward: 200, priority: 'high' as const, is_completed: true, category_id: 'career-skills' },
-            { id: 'c2', name: 'Сертификация по технологии', xp_reward: 300, priority: 'high' as const, is_completed: false, category_id: 'career-skills' }
-          ]
-        },
-        {
-          id: 'career-network',
-          name: 'Профессиональные Связи',
-          progress: 60,
-          total_tasks: 4,
-          completed_tasks: 2,
-          tasks: [
-            { id: 'c3', name: 'Участие в профконференции', xp_reward: 150, priority: 'medium' as const, is_completed: true, category_id: 'career-network' },
-            { id: 'c4', name: 'Обновить LinkedIn профиль', xp_reward: 50, priority: 'low' as const, is_completed: false, category_id: 'career-network' }
-          ]
-        }
-      ]
-    }
-
-    return baseCategories[sphereName as keyof typeof baseCategories] || [
+  const getDefaultCategoriesForSphere = (_sphereName: string) => {
+    // Generic defaults independent of legacy names
+    return [
       {
         id: 'general-1',
-        name: 'Основные Задачи',
-        progress: 50,
+        name: 'Core Improvements',
+        progress: 0,
         total_tasks: 3,
-        completed_tasks: 1,
+        completed_tasks: 0,
         tasks: [
-          { id: 'g1', name: 'Поставить цель', xp_reward: 100, priority: 'high' as const, is_completed: false, category_id: 'general-1' },
-          { id: 'g2', name: 'Составить план', xp_reward: 80, priority: 'medium' as const, is_completed: true, category_id: 'general-1' },
-          { id: 'g3', name: 'Начать действовать', xp_reward: 120, priority: 'high' as const, is_completed: false, category_id: 'general-1' }
+          { id: 'g1', name: 'Define 1 concrete improvement', xp_reward: 80, priority: 'high' as const, is_completed: false, category_id: 'general-1' },
+          { id: 'g2', name: 'Prepare environment/tools', xp_reward: 60, priority: 'medium' as const, is_completed: false, category_id: 'general-1' },
+          { id: 'g3', name: 'Execute micro-step', xp_reward: 50, priority: 'medium' as const, is_completed: false, category_id: 'general-1' }
         ]
       }
     ]
@@ -264,6 +240,63 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
       console.error('Error generating mascot:', error)
     } finally {
       setIsGeneratingMascot(null)
+    }
+  }
+
+  // Create Category
+  const handleCreateCategory = async () => {
+    if (!userId || !sphere) return
+    const name = newCategoryName.trim()
+    if (!name) { setAddCategoryError('Введите название категории'); return }
+    setIsCreatingCategory(true)
+    setAddCategoryError(null)
+    try {
+      const { data, error } = await supabase
+        .from('sphere_categories')
+        .insert([{ user_id: userId, sphere_id: sphere.id, category_name: name, progress: 0 }])
+        .select()
+        .single()
+      if (error) throw error
+
+      const newCat: Category = { id: data.id, name: data.category_name, progress: 0, total_tasks: 0, completed_tasks: 0, tasks: [] }
+      setCategories(prev => [newCat, ...prev])
+      setSelectedCategory(newCat.id)
+      setIsAddCategoryOpen(false)
+      setNewCategoryName('')
+    } catch (e:any) {
+      setAddCategoryError(e.message || 'Не удалось создать категорию')
+    } finally {
+      setIsCreatingCategory(false)
+    }
+  }
+
+  // Create Task
+  const handleCreateTask = async () => {
+    if (!userId || !selectedCategory) return
+    const name = newTaskName.trim()
+    if (!name) { setAddTaskError('Введите название задачи'); return }
+    setIsCreatingTask(true)
+    setAddTaskError(null)
+    try {
+      const { data, error } = await supabase
+        .from('sphere_tasks')
+        .insert([{ user_id: userId, category_id: selectedCategory, task_name: name, xp_reward: newTaskXP, priority: newTaskPriority, is_completed: false }])
+        .select()
+        .single()
+      if (error) throw error
+
+      const newTask: Task = { id: data.id, name: data.task_name, xp_reward: data.xp_reward, priority: data.priority, is_completed: false, category_id: selectedCategory }
+      setCategories(prev => prev.map(cat => cat.id === selectedCategory ? { ...cat, tasks: [newTask, ...cat.tasks], total_tasks: (cat.total_tasks || 0) + 1 } : cat))
+      setIsAddTaskOpen(false)
+      setNewTaskName('')
+      setNewTaskXP(50)
+      setNewTaskPriority('medium')
+      // bind for declaration if modal open
+      if (isDeclareOpen) setBindTaskId(data.id)
+    } catch (e:any) {
+      setAddTaskError(e.message || 'Не удалось создать задачу')
+    } finally {
+      setIsCreatingTask(false)
     }
   }
 
@@ -347,9 +380,43 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
             .eq('user_id', userId)
         }
 
+        // Try mark related declaration as completed
+        try {
+          if (userId) {
+            const { data: dec } = await supabase
+              .from('task_declarations')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('task_id', taskId)
+              .eq('status', 'declared')
+              .maybeSingle()
+            if (dec?.id) {
+              await markDeclarationCompleted(userId, dec.id)
+            }
+          }
+        } catch {}
+
       } catch (error) {
         console.error('Error updating task completion:', error)
       }
+    }
+  }
+
+  const handleDeclare = async () => {
+    if (!userId || !sphere) return
+    const title = declareTitle.trim() || newTaskName.trim() || 'Задача'
+    const dueISO = declareDue ? new Date(declareDue).toISOString() : new Date().toISOString()
+    setDeclaring(true)
+    try {
+      await declareTask(userId, sphere.id, title, dueISO, bindTaskId)
+      setIsDeclareOpen(false)
+      setDeclareTitle('')
+      setDeclareDue('')
+      setBindTaskId(null)
+    } catch (e) {
+      console.error('Declare task error', e)
+    } finally {
+      setDeclaring(false)
     }
   }
 
@@ -367,12 +434,21 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
             <h2 className="text-2xl font-bold text-white">
               {sphere.icon} {sphere.name}
             </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-white text-2xl"
-            >
-              ✕
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setIsAddCategoryOpen(true)}
+                className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded"
+                title="Добавить категорию"
+              >
+                + Категория
+              </button>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-white text-2xl"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {isLoading ? (
@@ -419,9 +495,27 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
               {/* Заголовок категории с маскотом */}
               <div className="flex items-start space-x-6 mb-8">
                 <div className="flex-1">
-                  <h3 className="text-3xl font-bold text-white mb-2">
-                    {selectedCategoryData.name}
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-3xl font-bold text-white mb-2">
+                      {selectedCategoryData.name}
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setIsAddTaskOpen(true)}
+                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+                        title="Добавить задачу"
+                      >
+                        + Задача
+                      </button>
+                      <button
+                        onClick={() => setIsDeclareOpen(true)}
+                        className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-3 py-1 rounded"
+                        title="Задекларировать цель"
+                      >
+                        Декларировать
+                      </button>
+                    </div>
+                  </div>
                   <div className="flex items-center space-x-4 mb-4">
                     <div className="bg-gray-700 px-3 py-1 rounded-full text-sm">
                       Прогресс: {selectedCategoryData.progress}%
@@ -433,7 +527,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
                 </div>
 
                 {/* AI Маскот */}
-                <div className="flex flex-col items-center">
+                <div className="flex-1 max-w-[120px] flex flex-col items-center">
                   {selectedCategoryData.mascot_url ? (
                     <img
                       src={selectedCategoryData.mascot_url}
@@ -506,6 +600,128 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
           )}
         </div>
       </div>
+
+      {/* Модалка добавления категории */}
+      {isAddCategoryOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={()=>setIsAddCategoryOpen(false)}>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 w-full max-w-sm mx-4" onClick={(e)=>e.stopPropagation()}>
+            <h4 className="text-white font-semibold mb-3">Добавить категорию</h4>
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e)=>setNewCategoryName(e.target.value)}
+              placeholder="Например: Бокс"
+              className="w-full bg-gray-700 text-white rounded px-3 py-2 mb-2 outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            {addCategoryError && <div className="text-red-400 text-xs mb-2">{addCategoryError}</div>}
+            <div className="flex space-x-2">
+              <button
+                onClick={handleCreateCategory}
+                disabled={isCreatingCategory}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white rounded px-3 py-2"
+              >
+                {isCreatingCategory ? 'Создание...' : 'Создать'}
+              </button>
+              <button
+                onClick={()=>setIsAddCategoryOpen(false)}
+                className="flex-1 bg-gray-600 hover:bg-gray-500 text-white rounded px-3 py-2"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка добавления задачи */}
+      {isAddTaskOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={()=>setIsAddTaskOpen(false)}>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 w-full max-w-sm mx-4" onClick={(e)=>e.stopPropagation()}>
+            <h4 className="text-white font-semibold mb-3">Добавить задачу</h4>
+            <input
+              type="text"
+              value={newTaskName}
+              onChange={(e)=>setNewTaskName(e.target.value)}
+              placeholder="Например: Бой с тенью в лесу"
+              className="w-full bg-gray-700 text-white rounded px-3 py-2 mb-2 outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex space-x-2 mb-2">
+              <input
+                type="number"
+                min={0}
+                value={newTaskXP}
+                onChange={(e)=>setNewTaskXP(Number(e.target.value))}
+                className="flex-1 bg-gray-700 text-white rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="XP"
+              />
+              <select
+                value={newTaskPriority}
+                onChange={(e)=>setNewTaskPriority(e.target.value as any)}
+                className="w-32 bg-gray-700 text-white rounded px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="high">Высокий</option>
+                <option value="medium">Средний</option>
+                <option value="low">Низкий</option>
+              </select>
+            </div>
+            {addTaskError && <div className="text-red-400 text-xs mb-2">{addTaskError}</div>}
+            <div className="flex space-x-2">
+              <button
+                onClick={handleCreateTask}
+                disabled={isCreatingTask}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white rounded px-3 py-2"
+              >
+                {isCreatingTask ? 'Создание...' : 'Создать'}
+              </button>
+              <button
+                onClick={()=>setIsAddTaskOpen(false)}
+                className="flex-1 bg-gray-600 hover:bg-gray-500 text-white rounded px-3 py-2"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка декларации задачи */}
+      {isDeclareOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={()=>setIsDeclareOpen(false)}>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 w-full max-w-sm mx-4" onClick={(e)=>e.stopPropagation()}>
+            <h4 className="text-white font-semibold mb-3">Декларировать задачу</h4>
+            <input
+              type="text"
+              value={declareTitle}
+              onChange={(e)=>setDeclareTitle(e.target.value)}
+              placeholder="Название (если пусто — возьмем из новой задачи)"
+              className="w-full bg-gray-700 text-white rounded px-3 py-2 mb-2 outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <label className="text-sm text-gray-300">Дедлайн</label>
+            <input
+              type="datetime-local"
+              value={declareDue}
+              onChange={(e)=>setDeclareDue(e.target.value)}
+              className="w-full bg-gray-700 text-white rounded px-3 py-2 mb-3 outline-none focus:ring-2 focus:ring-amber-500"
+            />
+            <div className="text-xs text-gray-400 mb-2">Подсказка: если сейчас создадите задачу, декларация привяжется к ней автоматически.</div>
+            <div className="flex space-x-2">
+              <button
+                onClick={handleDeclare}
+                disabled={declaring}
+                className="flex-1 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-800 text-white rounded px-3 py-2"
+              >
+                {declaring ? 'Создание...' : 'Создать'}
+              </button>
+              <button
+                onClick={()=>setIsDeclareOpen(false)}
+                className="flex-1 bg-gray-600 hover:bg-gray-500 text-white rounded px-3 py-2"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

@@ -1,5 +1,7 @@
 'use client'
 
+import React from 'react'
+
 interface Sphere {
   id: string
   name: string
@@ -11,9 +13,11 @@ interface Sphere {
 interface SphereHealthBarProps {
   sphere: Sphere
   onClick?: (sphere: Sphere) => void
+  iconUrl?: string
+  onUploadIcon?: () => void
 }
 
-export default function SphereHealthBar({ sphere, onClick }: SphereHealthBarProps) {
+export default function SphereHealthBar({ sphere, onClick, iconUrl, onUploadIcon }: SphereHealthBarProps) {
   const getHealthColor = (percentage: number): string => {
     if (percentage >= 80) return 'bg-green-500'
     if (percentage >= 60) return 'bg-yellow-500'
@@ -30,17 +34,20 @@ export default function SphereHealthBar({ sphere, onClick }: SphereHealthBarProp
 
   return (
     <div 
-      className="group cursor-pointer hover:bg-gray-700/30 p-2 rounded transition-all duration-200"
+      className="group cursor-pointer hover:bg-gray-700/30 p-2 rounded transition-all duration-200 flex items-center"
       onClick={() => onClick?.(sphere)}
     >
-      <div className="flex items-center space-x-3">
-        <div className="text-lg">{sphere.icon}</div>
+      <div className="flex items-center space-x-3 flex-1 min-w-0">
+        {iconUrl ? (
+          <img src={iconUrl} alt={sphere.name} className="w-6 h-6 rounded object-cover" />
+        ) : (
+          <div className="text-lg">{sphere.icon}</div>
+        )}
         <div className="flex-1">
           <div className="flex justify-between items-center mb-1">
-            <span className="text-sm font-medium text-gray-300">{sphere.name}</span>
+            <span className="text-sm font-medium text-gray-300 truncate">{sphere.name}</span>
             <span className="text-xs text-gray-400 font-mono">{sphere.health_percentage}%</span>
           </div>
-          
           {/* Progress Bar */}
           <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
             <div 
@@ -60,11 +67,16 @@ export default function SphereHealthBar({ sphere, onClick }: SphereHealthBarProp
           </div>
         </div>
       </div>
-      
-      {/* Hover tooltip */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs text-gray-400 mt-1 pl-8">
-        Кликни для детализации
-      </div>
+      {onUploadIcon && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onUploadIcon() }}
+          className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-xs bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded"
+          title="Загрузить иконку"
+        >
+          🖼️
+        </button>
+      )}
     </div>
   )
 } 

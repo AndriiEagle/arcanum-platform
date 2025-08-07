@@ -186,4 +186,100 @@ CREATE INDEX idx_ui_layouts_user_id ON ui_layouts(user_id);
 CREATE INDEX idx_life_spheres_user_id ON life_spheres(user_id);
 CREATE INDEX idx_life_spheres_active ON life_spheres(is_active); 
 
+-- ==============================
+-- DISCIPLINE TABLES
+-- ==============================
+
+-- Таблица деклараций задач (что пользователь пообещал сделать к сроку)
+CREATE TABLE IF NOT EXISTS task_declarations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  sphere_id UUID NULL REFERENCES life_spheres(id) ON DELETE SET NULL,
+  task_id UUID NULL, -- опционально, если есть связь с sphere_tasks
+  title TEXT NOT NULL,
+  due_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'declared', -- declared | completed | missed
+  completed_at TIMESTAMPTZ NULL,
+  processed BOOLEAN NOT NULL DEFAULT FALSE, -- обработано ли в ежедневном обзоре
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE task_declarations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own declarations" ON task_declarations
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Таблица событий дисциплины (награда/штраф)
+CREATE TABLE IF NOT EXISTS discipline_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  declaration_id UUID NULL REFERENCES task_declarations(id) ON DELETE SET NULL,
+  type TEXT NOT NULL CHECK (type IN ('reward', 'penalty')),
+  delta_xp INTEGER NOT NULL,
+  level_before INTEGER NOT NULL,
+  level_after INTEGER NOT NULL,
+  details TEXT NOT NULL,
+  mascot_url TEXT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE discipline_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users view own discipline events" ON discipline_events
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users insert own discipline events" ON discipline_events
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Индексы
+CREATE INDEX IF NOT EXISTS idx_task_declarations_user ON task_declarations(user_id);
+CREATE INDEX IF NOT EXISTS idx_task_declarations_due ON task_declarations(due_at);
+CREATE INDEX IF NOT EXISTS idx_task_declarations_status ON task_declarations(status);
+CREATE INDEX IF NOT EXISTS idx_discipline_events_user ON discipline_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_discipline_events_created ON discipline_events(created_at);
+
+-- ==============================
+-- SCHEDULED EVENTS
+-- ==============================
+CREATE TABLE IF NOT EXISTS scheduled_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  title TEXT NOT NULL,
+  event_type TEXT NOT NULL CHECK (event_type IN ('image','video','audio','mascots','text')),
+  payload JSONB NOT NULL DEFAULT '{}', -- {url, mascots:[urls], text:string}
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'scheduled', -- scheduled | fired | canceled
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE scheduled_events ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own scheduled events" ON scheduled_events
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_sched_events_user ON scheduled_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_sched_events_time ON scheduled_events(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_sched_events_status ON scheduled_events(status);
+
+-- ==============================
+-- USER INTEGRATIONS (OAuth tokens)
+-- ==============================
+CREATE TABLE IF NOT EXISTS user_integrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  provider TEXT NOT NULL, -- e.g., 'google_drive'
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  scope TEXT,
+  token_type TEXT,
+  expiry_date TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, provider)
+);
+
+ALTER TABLE user_integrations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users manage own integrations" ON user_integrations
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE INDEX IF NOT EXISTS idx_user_integrations_user ON user_integrations(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_integrations_provider ON user_integrations(provider);
+
 -- Готово! Все таблицы созданы.

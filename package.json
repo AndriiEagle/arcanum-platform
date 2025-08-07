@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "lint:ci": "next lint && npx tsc --noEmit"
+    "lint:ci": "next lint && npx tsc --noEmit",
+    "db:backup": "node scripts/ops/backup-tables.js",
+    "db:migrate:spheres": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"if (-not $Env:DATABASE_URL) { throw 'DATABASE_URL not set' }; psql $Env:DATABASE_URL -f ./supabase/migrations/0002_add_sphere_code_and_seed_function.sql; psql $Env:DATABASE_URL -f ./supabase/migrations/0003_seed_spheres_v9_initial.sql\"",
+    "db:map12to9": "node scripts/migrations/map_tasks_12_to_9.js --map=scripts/migrations/legacy_to_v9_map.sample.json",
+    "test:resonance": "cross-env TS_NODE_PROJECT=tsconfig.test.json node -r ts-node/register/transpile-only __tests__/resonance.unit.test.ts",
+    "test:orchestrator": "cross-env TS_NODE_PROJECT=tsconfig.test.json node -r ts-node/register/transpile-only __tests__/orchestrator.e2e.test.ts",
+    "test:all": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"npm run test:resonance; npm run test:orchestrator\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -20,6 +26,7 @@
     "dotenv": "^17.2.1",
     "lodash.debounce": "^4.0.8",
     "next": "15.4.5",
+    "nodemailer": "^7.0.5",
     "openai": "^5.11.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -33,11 +40,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.4.5",
     "eslint-plugin-import": "^2.32.0",
     "madge": "^8.0.0",
     "tailwindcss": "^4",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
   }
 }

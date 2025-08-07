@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
+import { getDisplayNameForCode, getIconForCode } from '../../../lib/core/life-spheres'
 
 interface Sphere {
   id: string
@@ -55,7 +56,7 @@ export default function ResonanceView() {
       // Пытаемся загрузить реальные данные из Supabase
       const { data: userSpheres, error } = await supabase
         .from('life_spheres')
-        .select('*')
+        .select('id, sphere_name, sphere_code, health_percentage, is_active')
         .eq('user_id', userId)
         .eq('is_active', true)
 
@@ -72,13 +73,15 @@ export default function ResonanceView() {
           const x = centerX + radius * Math.cos(angle)
           const y = centerY + radius * Math.sin(angle)
           
+          const displayName = sphere.sphere_code ? getDisplayNameForCode(sphere.sphere_code) : sphere.sphere_name
+          const displayIcon = sphere.sphere_code ? getIconForCode(sphere.sphere_code) : getSphereIcon(sphere.sphere_name)
           return {
             id: sphere.id,
-            name: sphere.sphere_name,
+            name: displayName,
             health_percentage: sphere.health_percentage || 50,
             resonance_degree: (sphere.health_percentage || 50) / 100,
-            color: getSphereColor(sphere.sphere_name),
-            icon: getSphereIcon(sphere.sphere_name),
+            color: sphere.sphere_code ? getSphereColorByCode(sphere.sphere_code) : getSphereColor(sphere.sphere_name),
+            icon: displayIcon,
             isActive: sphere.is_active,
             position: { x, y }
           }
@@ -99,21 +102,18 @@ export default function ResonanceView() {
   }
 
   const createDefaultSpheres = () => {
-    const defaultSpheres: Sphere[] = [
-      { id: '1', name: 'Здоровье', health_percentage: 78, resonance_degree: 0.85, color: '#10B981', icon: '💪', isActive: true, position: { x: 0, y: 0 } },
-      { id: '2', name: 'Карьера', health_percentage: 92, resonance_degree: 0.92, color: '#3B82F6', icon: '💼', isActive: true, position: { x: 0, y: 0 } },
-      { id: '3', name: 'Отношения', health_percentage: 65, resonance_degree: 0.70, color: '#EC4899', icon: '❤️', isActive: true, position: { x: 0, y: 0 } },
-      { id: '4', name: 'Финансы', health_percentage: 88, resonance_degree: 0.89, color: '#F59E0B', icon: '💰', isActive: true, position: { x: 0, y: 0 } },
-      { id: '5', name: 'Саморазвитие', health_percentage: 73, resonance_degree: 0.75, color: '#8B5CF6', icon: '📚', isActive: true, position: { x: 0, y: 0 } },
-      { id: '6', name: 'Хобби', health_percentage: 45, resonance_degree: 0.50, color: '#F97316', icon: '🎨', isActive: true, position: { x: 0, y: 0 } },
-      { id: '7', name: 'Духовность', health_percentage: 60, resonance_degree: 0.65, color: '#A855F7', icon: '🧘', isActive: true, position: { x: 0, y: 0 } },
-      { id: '8', name: 'Семья', health_percentage: 82, resonance_degree: 0.80, color: '#EF4444', icon: '👨‍👩‍👧‍👦', isActive: true, position: { x: 0, y: 0 } },
-      { id: '9', name: 'Друзья', health_percentage: 67, resonance_degree: 0.72, color: '#06B6D4', icon: '👥', isActive: true, position: { x: 0, y: 0 } },
-      { id: '10', name: 'Путешествия', health_percentage: 32, resonance_degree: 0.35, color: '#6366F1', icon: '✈️', isActive: false, position: { x: 0, y: 0 } },
-      { id: '11', name: 'Жилье', health_percentage: 75, resonance_degree: 0.78, color: '#059669', icon: '🏠', isActive: true, position: { x: 0, y: 0 } },
-      { id: '12', name: 'Экология', health_percentage: 55, resonance_degree: 0.58, color: '#84CC16', icon: '🌱', isActive: true, position: { x: 0, y: 0 } }
-    ]
-
+    const codes = ['S1','S2','S3','S4','S5','S6','S7','S8','S9'] as const
+    const defaultSpheres: Sphere[] = codes.map((code, idx) => ({
+      id: `${idx+1}`,
+      name: getDisplayNameForCode(code),
+      health_percentage: 50,
+      resonance_degree: 0.5,
+      color: getSphereColorByCode(code),
+      icon: getIconForCode(code),
+      isActive: true,
+      position: { x: 0, y: 0 }
+    }))
+    
     // Расчет позиций по кругу
     const spheresWithPositions = defaultSpheres.map((sphere, index) => {
       const angle = (index * 2 * Math.PI) / defaultSpheres.length
@@ -124,6 +124,14 @@ export default function ResonanceView() {
 
     setSpheres(spheresWithPositions)
     generateConnections(spheresWithPositions)
+  }
+
+  const getSphereColorByCode = (code?: string): string => {
+    const map: Record<string, string> = {
+      S1: '#10B981', S2: '#3B82F6', S3: '#059669', S4: '#F97316', S5: '#EC4899',
+      S6: '#8B5CF6', S7: '#F59E0B', S8: '#06B6D4', S9: '#84CC16'
+    }
+    return (code && map[code]) || '#6B7280'
   }
 
   const getSphereColor = (sphereName: string): string => {

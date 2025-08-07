@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
 import SphereHealthBar from './SphereHealthBar'
 import SphereDevelopmentTree from '../modals/SphereDevelopmentTree'
 import PaywallModal from '../payments/PaywallModal'
+import { getSphereIcons, setSphereIcon } from '../../../lib/services/customizationService'
+import { uploadImageResized } from '../../../lib/services/imageUpload'
 
 interface Sphere {
   id: string
@@ -54,20 +56,7 @@ export default function StatsColumnWidget() {
   })
 
   // Состояние для сфер жизни
-  const [spheres, setSpheres] = useState<Sphere[]>([
-    { id: '1', name: 'Здоровье', health_percentage: 78, color: 'green', icon: '💪', global_goal: 'Достичь идеальной физической формы' },
-    { id: '2', name: 'Карьера', health_percentage: 92, color: 'blue', icon: '💼', global_goal: 'Стать senior разработчиком' },
-    { id: '3', name: 'Отношения', health_percentage: 65, color: 'pink', icon: '❤️', global_goal: 'Укрепить связи с близкими' },
-    { id: '4', name: 'Финансы', health_percentage: 88, color: 'green', icon: '💰', global_goal: 'Достичь финансовой независимости' },
-    { id: '5', name: 'Саморазвитие', health_percentage: 73, color: 'purple', icon: '📚', global_goal: 'Постоянно учиться и расти' },
-    { id: '6', name: 'Хобби', health_percentage: 45, color: 'orange', icon: '🎨', global_goal: 'Развить творческие способности' },
-    { id: '7', name: 'Духовность', health_percentage: 58, color: 'yellow', icon: '🧘', global_goal: 'Найти внутренний баланс' },
-    { id: '8', name: 'Семья', health_percentage: 82, color: 'rose', icon: '👨‍👩‍👧‍👦', global_goal: 'Быть лучшим членом семьи' },
-    { id: '9', name: 'Друзья', health_percentage: 67, color: 'cyan', icon: '👥', global_goal: 'Поддерживать крепкую дружбу' },
-    { id: '10', name: 'Путешествия', health_percentage: 32, color: 'indigo', icon: '✈️', global_goal: 'Исследовать мир' },
-    { id: '11', name: 'Жилье', health_percentage: 75, color: 'teal', icon: '🏠', global_goal: 'Создать идеальное жилое пространство' },
-    { id: '12', name: 'Экология', health_percentage: 55, color: 'lime', icon: '🌱', global_goal: 'Жить экологично' }
-  ])
+  const [spheres, setSpheres] = useState<Sphere[]>([])
 
   // Состояние для задач
   const [tasks, setTasks] = useState<Task[]>([
@@ -88,6 +77,12 @@ export default function StatsColumnWidget() {
   // Состояние для модального окна дерева развития
   const [selectedSphereForTree, setSelectedSphereForTree] = useState<Sphere | null>(null)
   const [isTreeModalOpen, setIsTreeModalOpen] = useState(false)
+ 
+  // Состояние для простой модальной формы добавления сферы
+  const [isAddSphereOpen, setIsAddSphereOpen] = useState(false)
+  const [newSphereName, setNewSphereName] = useState('')
+  const [isCreatingSphere, setIsCreatingSphere] = useState(false)
+  const [createSphereError, setCreateSphereError] = useState<string | null>(null)
 
   // Состояние для простого модального окна (старое)
   const [selectedSphere, setSelectedSphere] = useState<Sphere | null>(null)
@@ -97,6 +92,9 @@ export default function StatsColumnWidget() {
   const [showMascotPaywall, setShowMascotPaywall] = useState(false)
   const [generatedMascot, setGeneratedMascot] = useState<string | null>(null)
   const [isGeneratingMascot, setIsGeneratingMascot] = useState(false)
+
+  const [sphereIconUrls, setSphereIconUrls] = useState<Record<string, string>>({})
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const supabase = createClient()
 
@@ -154,6 +152,47 @@ export default function StatsColumnWidget() {
     setIsTreeModalOpen(true)
   }
 
+  // Создание новой сферы через Supabase и открытие дерева
+  const handleCreateSphere = async () => {
+    if (!userId) {
+      alert('Войдите в аккаунт, чтобы добавлять сферы')
+      return
+    }
+    const trimmed = newSphereName.trim()
+    if (!trimmed) {
+      setCreateSphereError('Введите название сферы')
+      return
+    }
+    setIsCreatingSphere(true)
+    setCreateSphereError(null)
+    try {
+      const { data, error } = await supabase
+        .from('life_spheres')
+        .insert([{ user_id: userId, sphere_name: trimmed, health_percentage: 50 }])
+        .select()
+        .single()
+      if (error) throw error
+
+      const created: Sphere = {
+        id: data.id,
+        name: data.sphere_name,
+        health_percentage: data.health_percentage || 50,
+        color: 'blue',
+        icon: getSphereIcon(data.sphere_name)
+      }
+
+      setSpheres(prev => [created, ...prev])
+      setIsAddSphereOpen(false)
+      setNewSphereName('')
+      // Открываем дерево — внутри автоматически создадутся дефолтные категории/задачи
+      handleSphereClick(created)
+    } catch (e: any) {
+      setCreateSphereError(e.message || 'Не удалось создать сферу')
+    } finally {
+      setIsCreatingSphere(false)
+    }
+  }
+
   // Закрытие дерева развития
   const closeTreeModal = () => {
     setIsTreeModalOpen(false)
@@ -204,6 +243,32 @@ export default function StatsColumnWidget() {
   useEffect(() => {
     loadSpheresFromSupabase()
   }, [loadSpheresFromSupabase])
+
+  useEffect(() => {
+    (async () => {
+      if (!userId) return
+      const icons = await getSphereIcons(userId)
+      setSphereIconUrls(icons)
+    })()
+  }, [userId])
+
+  const openIconPicker = (sphereId: string) => {
+    fileInputRefs.current[sphereId]?.click()
+  }
+
+  const handleIconSelected = async (sphereId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0]
+      if (!file || !userId) return
+      const { url } = await uploadImageResized(file, { bucket: 'public-assets', pathPrefix: `sphere-icons/${userId}`, maxSize: 128 })
+      await setSphereIcon(userId, sphereId, url)
+      setSphereIconUrls(prev => ({ ...prev, [sphereId]: url }))
+    } catch (err) {
+      console.error('Sphere icon upload error:', err)
+    } finally {
+      if (fileInputRefs.current[sphereId]) fileInputRefs.current[sphereId]!.value = ''
+    }
+  }
 
   // Функция для получения цвета приоритета
   const getPriorityColor = (priority: string): string => {
@@ -331,19 +396,36 @@ export default function StatsColumnWidget() {
           </div>
         </div>
 
-        {/* Здоровье 12 сфер */}
+        {/* Сферы Жизни */}
         <div>
           <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
             <span className="mr-2">🌐</span>
             Сферы Жизни ({spheres.length}/12)
+            <button
+              onClick={() => setIsAddSphereOpen(true)}
+              className="ml-auto text-xs px-2 py-1 bg-purple-700 hover:bg-purple-600 rounded"
+              title="Добавить сферу"
+            >
+              + Сфера
+            </button>
           </h3>
           <div className="space-y-1 max-h-80 overflow-y-auto custom-scrollbar">
             {spheres.map((sphere) => (
-              <SphereHealthBar 
-                key={sphere.id} 
-                sphere={sphere} 
-                onClick={handleSphereClick}
-              />
+              <div key={sphere.id} className="flex items-center">
+                <SphereHealthBar 
+                  sphere={sphere} 
+                  onClick={handleSphereClick}
+                  iconUrl={sphereIconUrls[sphere.id]}
+                  onUploadIcon={() => openIconPicker(sphere.id)}
+                />
+                <input
+                  ref={(el) => { fileInputRefs.current[sphere.id] = el }}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => handleIconSelected(sphere.id, e)}
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -410,6 +492,38 @@ export default function StatsColumnWidget() {
         isOpen={isTreeModalOpen}
         onClose={closeTreeModal}
       />
+
+      {/* Модалка добавления сферы */}
+      {isAddSphereOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setIsAddSphereOpen(false)}>
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 w-full max-w-sm mx-4" onClick={(e)=>e.stopPropagation()}>
+            <h4 className="text-white font-semibold mb-3">Добавить новую сферу</h4>
+            <input
+              type="text"
+              value={newSphereName}
+              onChange={(e)=>setNewSphereName(e.target.value)}
+              placeholder="Например: Бокс"
+              className="w-full bg-gray-700 text-white rounded px-3 py-2 mb-2 outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            {createSphereError && <div className="text-red-400 text-xs mb-2">{createSphereError}</div>}
+            <div className="flex space-x-2">
+              <button
+                onClick={handleCreateSphere}
+                disabled={isCreatingSphere}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white rounded px-3 py-2"
+              >
+                {isCreatingSphere ? 'Создание...' : 'Создать'}
+              </button>
+              <button
+                onClick={() => setIsAddSphereOpen(false)}
+                className="flex-1 bg-gray-600 hover:bg-gray-500 text-white rounded px-3 py-2"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Paywall Modal для генерации маскотов */}
       {/* Временная заглушка до исправления импорта */}

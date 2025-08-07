@@ -9,6 +9,8 @@ import ModelSelector from './ai/ModelSelector'
 import PaywallModal from './payments/PaywallModal'
 import { getPriceVariant, logPaywallImpression, logPaywallClick } from '../../lib/services/abTestService'
 import { trackPaywallShown, trackPaywallClicked, trackPaymentInitiated } from '../../lib/services/analyticsService'
+import { getAvatarUrl, setAvatarUrl } from '../../lib/services/customizationService'
+import { uploadImageResized } from '../../lib/services/imageUpload'
 
 interface Message {
   id: string
@@ -199,6 +201,33 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
 
   const adaptivePosition = getAdaptivePosition()
   
+  const [avatarUrl, setAvatarUrlState] = useState<string | null>(null)
+  useEffect(() => {
+    (async () => {
+      if (!userId) return
+      const url = await getAvatarUrl(userId)
+      if (url) setAvatarUrlState(url)
+    })()
+  }, [userId])
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = e.target.files?.[0]
+      if (!file || !userId) return
+      const { url } = await uploadImageResized(file, { bucket: 'public-assets', pathPrefix: `avatars/${userId}`, maxSize: 128 })
+      await setAvatarUrl(userId, url)
+      setAvatarUrlState(url)
+    } catch (err) {
+      console.error('Avatar upload error:', err)
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   if (!isOpen) {
     return (
       <button onClick={onToggle} className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 border-2 border-white/20 z-50" style={{ position: 'fixed', bottom: 24, right: isRightPanelOpen ? 240 : 24 }} title="Открыть диалог с MOYO">
@@ -218,16 +247,28 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
           <div className="flex items-center space-x-3">
             {/* Аватар MOYO с индикацией модели */}
             <div className="relative">
-              <div 
-                className="w-10 h-10 rounded-full flex items-center justify-center border-2 text-lg"
-                style={{ 
-                  borderColor: currentModel.color,
-                  backgroundColor: `${currentModel.color}20`,
-                  color: currentModel.color
-                }}
-              >
-                {currentModel.icon}
-              </div>
+              <button type="button" onClick={handleAvatarClick} className="focus:outline-none">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="MOYO Avatar"
+                    className="w-10 h-10 rounded-full object-cover border-2"
+                    style={{ borderColor: currentModel.color }}
+                  />
+                ) : (
+                  <div 
+                    className="w-10 h-10 rounded-full flex items-center justify-center border-2 text-lg"
+                    style={{ 
+                      borderColor: currentModel.color,
+                      backgroundColor: `${currentModel.color}20`,
+                      color: currentModel.color
+                    }}
+                  >
+                    {currentModel.icon}
+                  </div>
+                )}
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleAvatarChange} />
               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-pulse" title="Модель активна"></div>
             </div>
             <div>
