@@ -42,6 +42,7 @@ export default function SidePanel({ position }: SidePanelProps) {
   } = useUIStore()
   
   const userId = useCurrentUserId()
+  console.log('[DBG][SidePanel] render', { position, isLeftPanelOpen, isRightPanelOpen, userId })
   const [spheres, setSpheres] = useState<Sphere[]>([])
   const [isLoadingSpheres, setIsLoadingSpheres] = useState(false)
   const [programmableButtons, setProgrammableButtons] = useState<ProgrammableButton[]>([])
