@@ -96,7 +96,7 @@ export default function StatsColumnWidget() {
   const [sphereIconUrls, setSphereIconUrls] = useState<Record<string, string>>({})
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
-  const supabase = createClient()
+  // Supabase client should be created inside functions to keep stable deps and avoid re-renders
 
   // Функция загрузки данных сфер из Supabase
   const loadSpheresFromSupabase = useCallback(async () => {
@@ -107,7 +107,7 @@ export default function StatsColumnWidget() {
         setIsLoading(false)
         return
       }
-
+      const supabase = createClient()
       const { data, error } = await supabase
         .from('life_spheres')
         .select('*')
@@ -134,7 +134,7 @@ export default function StatsColumnWidget() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [userId])
 
   // Функция для получения иконки сферы
   const getSphereIcon = (sphereName: string): string => {
@@ -166,6 +166,7 @@ export default function StatsColumnWidget() {
     setIsCreatingSphere(true)
     setCreateSphereError(null)
     try {
+      const supabase = createClient()
       const { data, error } = await supabase
         .from('life_spheres')
         .insert([{ user_id: userId, sphere_name: trimmed, health_percentage: 50 }])
