@@ -1,0 +1,522 @@
+/* Профессиональные анимации для paywall компонентов */
+/* Фокус на повышении конверсии через плавный UX */
+
+/* ===== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ===== */
+:root {
+  --animation-fast: 0.15s;
+  --animation-normal: 0.3s;
+  --animation-slow: 0.5s;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-out-back: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-out-elastic: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* Цвета для анимаций */
+  --success-green: #10b981;
+  --warning-orange: #f59e0b;
+  --error-red: #ef4444;
+  --primary-purple: #8b5cf6;
+}
+
+/* ===== KEYFRAMES ===== */
+
+/* Плавное появление */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Пульсация для критических элементов */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+/* Загрузка токенов */
+@keyframes tokenLoading {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* Успешная анимация */
+@keyframes success {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Ошибка - тряска */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
+}
+
+/* Прогресс бар заливка */
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+}
+
+/* Модальное окно появление */
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Кнопка hover эффект */
+@keyframes buttonHover {
+  from {
+    transform: translateY(0);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  to {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Спиннер загрузки */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Градиентное мерцание */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+/* ===== UTILITY КЛАССЫ ===== */
+
+/* Базовые анимации */
+.animate-fade-in {
+  animation: fadeIn var(--animation-normal) var(--ease-out-quart) forwards;
+}
+
+.animate-pulse-critical {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-success {
+  animation: success var(--animation-slow) var(--ease-out-elastic) forwards;
+}
+
+.animate-shake {
+  animation: shake var(--animation-fast) ease-in-out;
+}
+
+.animate-modal-enter {
+  animation: modalSlideUp var(--animation-normal) var(--ease-out-quart) forwards;
+}
+
+.animate-loading {
+  animation: spin 1s linear infinite;
+}
+
+/* Hover анимации */
+.animate-hover-lift {
+  transition: transform var(--animation-fast) var(--ease-out-quart),
+              box-shadow var(--animation-fast) var(--ease-out-quart);
+}
+
+.animate-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.animate-hover-scale {
+  transition: transform var(--animation-fast) var(--ease-out-quart);
+}
+
+.animate-hover-scale:hover {
+  transform: scale(1.05);
+}
+
+/* ===== КОМПОНЕНТ-СПЕЦИФИЧНЫЕ АНИМАЦИИ ===== */
+
+/* TokenCounter анимации */
+.token-counter {
+  transition: all var(--animation-normal) var(--ease-out-quart);
+}
+
+.token-counter.critical {
+  animation: pulse 2s ease-in-out infinite;
+  color: var(--error-red);
+}
+
+.token-counter.warning {
+  color: var(--warning-orange);
+}
+
+.token-counter.normal {
+  color: var(--success-green);
+}
+
+/* Прогресс бар */
+.token-progress {
+  overflow: hidden;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.token-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width var(--animation-slow) var(--ease-out-quart);
+  position: relative;
+  overflow: hidden;
+}
+
+.token-progress-fill.animated::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  animation: tokenLoading 1.5s ease-in-out infinite;
+}
+
+/* PaywallModal анимации */
+.paywall-modal {
+  backdrop-filter: blur(8px);
+  animation: fadeIn var(--animation-normal) var(--ease-out-quart) forwards;
+}
+
+.paywall-modal-content {
+  animation: modalSlideUp var(--animation-normal) var(--ease-out-quart) forwards;
+  transform-origin: center bottom;
+}
+
+.paywall-modal.closing {
+  animation: fadeIn var(--animation-fast) var(--ease-out-quart) reverse forwards;
+}
+
+.paywall-modal.closing .paywall-modal-content {
+  animation: modalSlideUp var(--animation-fast) var(--ease-out-quart) reverse forwards;
+}
+
+/* Кнопки покупки */
+.purchase-button {
+  position: relative;
+  overflow: hidden;
+  transition: all var(--animation-fast) var(--ease-out-quart);
+}
+
+.purchase-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    transparent 100%
+  );
+  transition: left var(--animation-normal) var(--ease-out-quart);
+}
+
+.purchase-button:hover::before {
+  left: 100%;
+}
+
+.purchase-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+}
+
+.purchase-button:active {
+  transform: translateY(0);
+  transition-duration: var(--animation-fast);
+}
+
+.purchase-button.loading {
+  pointer-events: none;
+}
+
+.purchase-button.success {
+  background: var(--success-green) !important;
+  animation: success var(--animation-slow) var(--ease-out-elastic) forwards;
+}
+
+.purchase-button.error {
+  background: var(--error-red) !important;
+  animation: shake var(--animation-fast) ease-in-out;
+}
+
+/* Список преимуществ */
+.benefits-list {
+  list-style: none;
+  padding: 0;
+}
+
+.benefits-list li {
+  opacity: 0;
+  transform: translateX(-20px);
+  animation: fadeIn var(--animation-normal) var(--ease-out-quart) forwards;
+}
+
+.benefits-list li:nth-child(1) { animation-delay: 0.1s; }
+.benefits-list li:nth-child(2) { animation-delay: 0.2s; }
+.benefits-list li:nth-child(3) { animation-delay: 0.3s; }
+.benefits-list li:nth-child(4) { animation-delay: 0.4s; }
+.benefits-list li:nth-child(5) { animation-delay: 0.5s; }
+
+.benefits-list .check-icon {
+  color: var(--success-green);
+  transition: transform var(--animation-fast) var(--ease-out-quart);
+}
+
+.benefits-list li:hover .check-icon {
+  transform: scale(1.2);
+}
+
+/* Индикаторы загрузки */
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid var(--primary-purple);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-dots::after {
+  content: '';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0%, 20% {
+    content: '';
+  }
+  40% {
+    content: '.';
+  }
+  60% {
+    content: '..';
+  }
+  80%, 100% {
+    content: '...';
+  }
+}
+
+/* Shimmer эффект для загрузки */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 50%,
+    #f0f0f0 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ===== RESPONSIVE АНИМАЦИИ ===== */
+
+/* Уменьшенные анимации на слабых устройствах */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Более плавные анимации на больших экранах */
+@media (min-width: 1024px) {
+  .paywall-modal-content {
+    animation-duration: var(--animation-slow);
+  }
+  
+  .purchase-button:hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* Упрощенные анимации на мобильных */
+@media (max-width: 768px) {
+  .animate-hover-lift:hover {
+    transform: none;
+  }
+  
+  .purchase-button:hover {
+    transform: none;
+  }
+  
+  .benefits-list li {
+    animation-delay: 0s;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+/* Фокус анимации для клавиатурной навигации */
+.focus-ring {
+  transition: box-shadow var(--animation-fast) var(--ease-out-quart);
+}
+
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.5);
+}
+
+/* Высокий контраст */
+@media (prefers-contrast: high) {
+  .token-counter.critical {
+    background: var(--error-red);
+    color: white;
+  }
+  
+  .token-counter.warning {
+    background: var(--warning-orange);
+    color: black;
+  }
+}
+
+/* ===== ТЕМНАЯ ТЕМА ===== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --success-green: #34d399;
+    --warning-orange: #fbbf24;
+    --error-red: #f87171;
+    --primary-purple: #a78bfa;
+  }
+  
+  .paywall-modal {
+    backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.7);
+  }
+  
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      #374151 25%,
+      #4b5563 50%,
+      #374151 75%
+    );
+  }
+}
+
+/* ===== PERFORMANCE ОПТИМИЗАЦИИ ===== */
+
+/* GPU ускорение для анимаций */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000;
+}
+
+/* Содержание анимаций в слоях */
+.animate-container {
+  will-change: transform, opacity;
+}
+
+.animate-container.finished {
+  will-change: auto;
+}
+
+/* ===== ДОПОЛНИТЕЛЬНЫЕ ЭФФЕКТЫ ===== */
+
+/* Конфетти для успешных покупок */
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotateZ(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100vh) rotateZ(720deg);
+    opacity: 0;
+  }
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--primary-purple);
+  animation: confetti 3s ease-out forwards;
+}
+
+/* Ripple эффект для кнопок */
+.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.ripple:active::after {
+  width: 300px;
+  height: 300px;
+} 
