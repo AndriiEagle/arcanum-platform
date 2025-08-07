@@ -6,6 +6,7 @@ import AuthProvider from "../auth/AuthProvider";
 import { useEffect } from 'react'
 import { useEffectsStore } from '../../../lib/stores/effectsStore'
 import { useTokenStore } from '../../../lib/stores/tokenStore'
+import React from 'react'
 
 // Динамические импорты компонентов для избежания SSR проблем
 const SidePanel = dynamic(() => import("@/components/layout/SidePanel"), {
@@ -30,13 +31,16 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
   const { triggerFireworks } = useEffectsStore()
   const { setPremiumStatus, setLimit } = useTokenStore()
 
+  const processedCheckoutRef = React.useRef(false)
+
   // Отслеживаем успех Stripe Checkout (?checkout=success)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const url = new URL(window.location.href)
     const checkout = url.searchParams.get('checkout')
     const sessionId = url.searchParams.get('session_id')
-    if (checkout === 'success') {
+    if (checkout === 'success' && !processedCheckoutRef.current) {
+      processedCheckoutRef.current = true
       // Подтверждение на бекэнде (best-effort)
       fetch('/api/payments/confirm', {
         method: 'POST',
@@ -51,6 +55,8 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
       triggerFireworks()
 
       // Чистим URL
+      url.searchParams.delete('checkout')
+      url.searchParams.delete('session_id')
       const cleanUrl = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : '')
       window.history.replaceState({}, '', cleanUrl)
     }
