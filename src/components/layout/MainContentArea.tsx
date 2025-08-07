@@ -13,7 +13,12 @@ interface MainContentAreaProps {
 }
 
 export default function MainContentArea({ children }: MainContentAreaProps) {
-  const { activeView, setActiveView, middleMousePanEnabled, toggleMiddleMousePan, autoGenerateHeaderImage, toggleAutoGenerateHeaderImage } = useUIStore()
+  const activeView = useUIStore(s => s.activeView)
+  const setActiveView = useUIStore(s => s.setActiveView)
+  const middleMousePanEnabled = useUIStore(s => s.middleMousePanEnabled)
+  const toggleMiddleMousePan = useUIStore(s => s.toggleMiddleMousePan)
+  const autoGenerateHeaderImage = useUIStore(s => s.autoGenerateHeaderImage)
+  const toggleAutoGenerateHeaderImage = useUIStore(s => s.toggleAutoGenerateHeaderImage)
   const userId = useCurrentUserId() || 'anonymous'
   console.log('[DBG][MainContentArea] render', { activeView, userId })
   

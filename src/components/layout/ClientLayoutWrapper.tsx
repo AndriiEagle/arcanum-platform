@@ -28,8 +28,9 @@ interface ClientLayoutWrapperProps {
 }
 
 export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperProps) {
-  const { triggerFireworks } = useEffectsStore()
-  const { setPremiumStatus, setLimit } = useTokenStore()
+  const triggerFireworks = useEffectsStore(s => s.triggerFireworks)
+  const setPremiumStatus = useTokenStore(s => s.setPremiumStatus)
+  const setLimit = useTokenStore(s => s.setLimit)
 
   const processedCheckoutRef = React.useRef(false)
 
