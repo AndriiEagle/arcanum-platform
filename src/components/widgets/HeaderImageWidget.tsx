@@ -49,12 +49,12 @@ export default function HeaderImageWidget({ onError }: HeaderImageWidgetProps = 
     }
   }
 
-  // Генерируем изображение при первой загрузке
+  // Автогенерация только если включена в настройках; по умолчанию OFF
   useEffect(() => {
-    if (autoGenerateHeaderImage) {
+    if (autoGenerateHeaderImage && !imageUrl && !isGenerating) {
       generateImage()
     }
-  }, [])
+  }, [autoGenerateHeaderImage])
 
   return (
     <div className="bg-gradient-to-br from-purple-900/90 to-blue-900/90 backdrop-blur-sm rounded-lg p-6 border border-purple-700 shadow-2xl min-w-[400px] max-w-[500px]">

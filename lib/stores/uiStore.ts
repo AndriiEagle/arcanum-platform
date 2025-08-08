@@ -49,7 +49,7 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   // Тогглы UX (дефолты)
   middleMousePanEnabled: true,
-  autoGenerateHeaderImage: true,
+  autoGenerateHeaderImage: false,
   
   // Переключение состояния панелей
   toggleLeftPanel: () => set((state) => ({ 
