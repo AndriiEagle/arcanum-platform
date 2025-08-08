@@ -30,7 +30,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
   const currentModel = useCurrentModel()
   const { addTokenUsage } = useModelStore()
   const { isRightPanelOpen } = useUIStore()
-  console.log('[DBG][DialogueWindow] render', { isOpen, userId, model: currentModel.id })
+  console.log('[DBG][DialogueWindow] render', { isOpen, userId, model: currentModel?.id })
   
   const [messages, setMessages] = useState<Message[]>([
     {

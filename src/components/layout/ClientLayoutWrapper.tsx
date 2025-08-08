@@ -20,9 +20,7 @@ const MainContentArea = dynamic(() => import("@/components/layout/MainContentAre
   loading: () => <div className="flex-1 bg-gray-900 animate-pulse" />
 });
 
-const EffectsProvider = dynamic(() => import("@/components/providers/EffectsProvider").then(mod => ({ default: mod.EffectsProvider })), {
-  ssr: false
-});
+const EffectsProvider = dynamic(() => import("@/components/providers/EffectsProvider"), { ssr: false });
 
 interface ClientLayoutWrapperProps {
   children: React.ReactNode;
@@ -34,28 +32,10 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
   const setLimit = useTokenStore(s => s.setLimit)
 
   const processedCheckoutRef = React.useRef(false)
-  const [safeMode, setSafeMode] = React.useState(() => {
-    if (typeof window === 'undefined') return false
-    try {
-      const url = new URL(window.location.href)
-      const safe = url.searchParams.get('safe')
-      const local = localStorage.getItem('SAFE_MODE')
-      return safe === '1' || local === '1'
-    } catch {
-      return false
-    }
-  })
-  const [diagMode, setDiagMode] = React.useState(() => {
-    if (typeof window === 'undefined') return false
-    try {
-      const url = new URL(window.location.href)
-      const diag = url.searchParams.get('diag')
-      const local = localStorage.getItem('DIAG_MODE')
-      return diag === '1' || local === '1'
-    } catch {
-      return false
-    }
-  })
+  const [hydrated, setHydrated] = React.useState(false)
+  const [safeMode, setSafeMode] = React.useState(false)
+  const [diagMode, setDiagMode] = React.useState(false)
+  const [disableEffects, setDisableEffects] = React.useState(false)
 
   // SAFE MODE: включается через ?safe=1 или localStorage('SAFE_MODE')==='1'
   React.useEffect(() => {
@@ -68,6 +48,8 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
       const diag = url.searchParams.get('diag')
       const diagLocal = localStorage.getItem('DIAG_MODE')
       if (diag === '1' || diagLocal === '1') setDiagMode(true)
+      if (url.searchParams.get('noeffects') === '1') setDisableEffects(true)
+      setHydrated(true)
     } catch {}
   }, [])
 
@@ -136,46 +118,88 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <EffectsProvider>
-          <div className="flex h-screen w-full">
-            {/* Левая боковая панель */}
-            {diagMode ? (
-              <ErrorBoundary fallback={({ error }) => (
-                <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Left panel error: {error.message}</div>
-              )}>
+        {disableEffects ? (
+          <>
+            <div className="fixed bottom-2 left-2 z-50 bg-yellow-500/20 text-yellow-300 text-xs px-2 py-1 rounded border border-yellow-500/30">Effects OFF</div>
+            <div className="flex h-screen w-full">
+              {/* Левая боковая панель */}
+              {diagMode ? (
+                <ErrorBoundary fallback={({ error }) => (
+                  <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Left panel error: {error.message}</div>
+                )}>
+                  <SidePanel position="left" />
+                </ErrorBoundary>
+              ) : (
                 <SidePanel position="left" />
-              </ErrorBoundary>
-            ) : (
-              <SidePanel position="left" />
-            )}
-            
-            {/* Центральная область контента */}
-            {diagMode ? (
-              <ErrorBoundary fallback={({ error }) => (
-                <div className="flex-1 bg-gray-900 text-red-300 p-4">⚠️ Main content error: {error.message}</div>
-              )}>
+              )}
+              {/* Центральная область контента */}
+              {diagMode ? (
+                <ErrorBoundary fallback={({ error }) => (
+                  <div className="flex-1 bg-gray-900 text-red-300 p-4">⚠️ Main content error: {error.message}</div>
+                )}>
+                  <MainContentArea>
+                    {children}
+                  </MainContentArea>
+                </ErrorBoundary>
+              ) : (
                 <MainContentArea>
                   {children}
                 </MainContentArea>
-              </ErrorBoundary>
-            ) : (
-              <MainContentArea>
-                {children}
-              </MainContentArea>
-            )}
-            
-            {/* Правая боковая панель */}
-            {diagMode ? (
-              <ErrorBoundary fallback={({ error }) => (
-                <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Right panel error: {error.message}</div>
-              )}>
+              )}
+              {/* Правая боковая панель */}
+              {diagMode ? (
+                <ErrorBoundary fallback={({ error }) => (
+                  <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Right panel error: {error.message}</div>
+                )}>
+                  <SidePanel position="right" />
+                </ErrorBoundary>
+              ) : (
                 <SidePanel position="right" />
-              </ErrorBoundary>
-            ) : (
-              <SidePanel position="right" />
-            )}
-          </div>
-        </EffectsProvider>
+              )}
+            </div>
+          </>
+        ) : (
+          <EffectsProvider>
+            <div className="flex h-screen w-full">
+              {/* Левая боковая панель */}
+              {diagMode ? (
+                <ErrorBoundary fallback={({ error }) => (
+                  <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Left panel error: {error.message}</div>
+                )}>
+                  <SidePanel position="left" />
+                </ErrorBoundary>
+              ) : (
+                <SidePanel position="left" />
+              )}
+              
+              {/* Центральная область контента */}
+              {diagMode ? (
+                <ErrorBoundary fallback={({ error }) => (
+                  <div className="flex-1 bg-gray-900 text-red-300 p-4">⚠️ Main content error: {error.message}</div>
+                )}>
+                  <MainContentArea>
+                    {children}
+                  </MainContentArea>
+                </ErrorBoundary>
+              ) : (
+                <MainContentArea>
+                  {children}
+                </MainContentArea>
+              )}
+              
+              {/* Правая боковая панель */}
+              {diagMode ? (
+                <ErrorBoundary fallback={({ error }) => (
+                  <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Right panel error: {error.message}</div>
+                )}>
+                  <SidePanel position="right" />
+                </ErrorBoundary>
+              ) : (
+                <SidePanel position="right" />
+              )}
+            </div>
+          </EffectsProvider>
+        )}
       </AuthProvider>
     </ErrorBoundary>
   );

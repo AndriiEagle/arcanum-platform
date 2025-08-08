@@ -19,7 +19,7 @@ interface EffectsProviderProps {
   children: React.ReactNode
 }
 
-export function EffectsProvider({ children }: EffectsProviderProps) {
+export default function EffectsProvider({ children }: EffectsProviderProps) {
   const [isClient, setIsClient] = useState(false)
   const demoAllowedRef = React.useRef(false)
   

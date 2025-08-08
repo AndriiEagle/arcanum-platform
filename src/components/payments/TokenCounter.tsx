@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useTokenStore, selectTokenUsage, selectTokenWarning } from '../../../lib/stores/tokenStore'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useTokenStore } from '../../../lib/stores/tokenStore'
 
 interface TokenCounterProps {
   userId?: string
@@ -33,10 +33,17 @@ export default function TokenCounter({
     isNearLimit: false
   }
   
-  // Безопасное получение данных из store
-  const tokenUsage = useTokenStore(selectTokenUsage) || fallbackTokenUsage
-  const tokenWarning = useTokenStore(selectTokenWarning) || fallbackTokenWarning
-  const { updateUsage = () => {}, isPremium = false } = useTokenStore() || {}
+  // Primitive selectors to keep snapshots stable
+  const used = useTokenStore(s => s.used)
+  const limit = useTokenStore(s => s.limit)
+  const isLoading = useTokenStore(s => s.isLoading)
+  const showWarning = useTokenStore(s => s.showWarning)
+  const warningMessage = useTokenStore(s => s.warningMessage)
+  const updateUsage = useTokenStore(s => s.updateUsage)
+  const isPremium = useTokenStore(s => s.isPremium)
+
+  const percentageUsed = useMemo(() => (used / Math.max(limit, 1)) * 100, [used, limit])
+  const isNearLimit = useMemo(() => used / Math.max(limit, 1) > 0.8, [used, limit])
 
   // Предотвращаем SSR проблемы
   useEffect(() => {
@@ -91,8 +98,7 @@ export default function TokenCounter({
     )
   }
 
-  const { used, limit, percentageUsed, isLoading } = tokenUsage
-  const { showWarning, warningMessage, isNearLimit } = tokenWarning
+  // values computed above
 
   // Определяем цвета на основе использования
   const getStatusColor = () => {

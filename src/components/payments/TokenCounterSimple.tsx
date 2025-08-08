@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useTokenStore, selectTokenUsage as selectUsage, selectTokenWarning as selectWarning } from '../../../lib/stores/tokenStore'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useTokenStore } from '../../../lib/stores/tokenStore'
 
 interface TokenCounterSimpleProps {
   userId?: string
@@ -13,10 +13,17 @@ interface TokenCounterSimpleProps {
 export default function TokenCounterSimple({ userId = 'anonymous', onUpgrade, compact = false, showDetails = false }: TokenCounterSimpleProps) {
   const [isClient, setIsClient] = useState(false)
 
-  const tokenUsage = useTokenStore(selectUsage)
-  const tokenWarning = useTokenStore(selectWarning)
+  // Primitive selectors to keep snapshots stable
+  const used = useTokenStore(s => s.used)
+  const limit = useTokenStore(s => s.limit)
+  const isLoading = useTokenStore(s => s.isLoading)
+  const showWarning = useTokenStore(s => s.showWarning)
+  const warningMessage = useTokenStore(s => s.warningMessage)
   const updateUsage = useTokenStore(s => s.updateUsage)
   const isPremium = useTokenStore(s => s.isPremium)
+
+  const percentageUsed = useMemo(() => (used / Math.max(limit, 1)) * 100, [used, limit])
+  const isNearLimit = useMemo(() => used / Math.max(limit, 1) > 0.8, [used, limit])
 
   useEffect(() => { setIsClient(true) }, [])
 
@@ -51,8 +58,7 @@ export default function TokenCounterSimple({ userId = 'anonymous', onUpgrade, co
     )
   }
 
-  const { used, limit, percentageUsed, isLoading } = tokenUsage
-  const { showWarning, warningMessage, isNearLimit } = tokenWarning
+  // values computed above
 
   const getStatusColor = () => {
     if (percentageUsed >= 100) return 'red'

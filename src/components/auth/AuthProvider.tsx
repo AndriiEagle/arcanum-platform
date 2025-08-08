@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, ReactNode } from 'react'
+import { useEffect, ReactNode, useRef, useState } from 'react'
 import { useAuth } from '../../../lib/stores/authStore'
 
 interface AuthProviderProps {
@@ -9,15 +9,24 @@ interface AuthProviderProps {
 
 export default function AuthProvider({ children }: AuthProviderProps) {
   const { initialize, isInitialized, isLoading } = useAuth()
+  const didInitRef = useRef(false)
+  const [hydrated, setHydrated] = useState(false)
 
+  // Единоразовый вызов initialize()
   useEffect(() => {
-    if (!isInitialized) {
+    if (!didInitRef.current) {
+      didInitRef.current = true
       initialize()
     }
-  }, [initialize, isInitialized])
+  }, [initialize])
 
-  // Показываем загрузку только при первой инициализации
-  if (!isInitialized && isLoading) {
+  // Отмечаем, что клиентская гидратация завершена
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
+
+  // Показываем загрузку только после гидратации, чтобы избежать SSR/CSR mismatch
+  if (hydrated && !isInitialized && isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex items-center justify-center">
         <div className="text-center">
