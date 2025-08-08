@@ -295,7 +295,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
               {isDocked ? '📌' : '🔓'}
             </button>
             
-            <ModelSelector />
+            <ModelSelector renderPanel={false} />
             <button
               onClick={onToggle}
               className="text-gray-400 hover:text-white transition-colors p-1"

@@ -92,6 +92,8 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
       
       {/* Основная рабочая область с переключением режимов */}
       <div className="h-[calc(100vh-4rem)] relative">
+        {/* Глобальная панель селектора моделей рендерится один раз */}
+        <ModelSelector renderPanel={true} />
         {activeView === 'dashboard' ? (
           <DashboardView />
         ) : (

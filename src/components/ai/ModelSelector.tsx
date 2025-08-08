@@ -5,7 +5,9 @@ import { useCurrentModel, useModelSelector, useModelStore, useUsageStats } from 
 import { getAvailableModels, MODEL_CATEGORIES, AIModel } from '../../../lib/config/aiModels'
 import PaywallModal from '../payments/PaywallModal'
 
-export default function ModelSelector() {
+interface ModelSelectorProps { renderPanel?: boolean }
+
+export default function ModelSelector({ renderPanel = true }: ModelSelectorProps) {
   const currentModel = useCurrentModel()
   const { isModelSelectorOpen, toggleModelSelector, setModelSelector } = useModelSelector()
   const { setSelectedModel } = useModelStore()
@@ -104,7 +106,7 @@ export default function ModelSelector() {
       </button>
 
       {/* Панель селектора */}
-      {isModelSelectorOpen && (
+      {renderPanel && isModelSelectorOpen && (
         <>
           {/* Backdrop */}
           <div 
