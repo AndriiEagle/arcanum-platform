@@ -40,13 +40,19 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
     const url = new URL(window.location.href)
     const checkout = url.searchParams.get('checkout')
     const sessionId = url.searchParams.get('session_id')
+    const processedKey = sessionId ? `checkout_processed_${sessionId}` : 'checkout_processed_generic'
+
     console.log('[DBG][ClientLayoutWrapper] effect run', {
       checkout,
       sessionId,
       processed: processedCheckoutRef.current
     })
-    if (checkout === 'success' && !processedCheckoutRef.current) {
+
+    const alreadyProcessed = sessionStorage.getItem(processedKey) === '1'
+
+    if (checkout === 'success' && !processedCheckoutRef.current && !alreadyProcessed) {
       processedCheckoutRef.current = true
+      sessionStorage.setItem(processedKey, '1')
       console.log('[DBG][ClientLayoutWrapper] processing checkout success...')
       // Подтверждение на бекэнде (best-effort)
       fetch('/api/payments/confirm', {

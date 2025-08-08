@@ -21,7 +21,7 @@ interface Particle {
 }
 
 export default function LevelUpAnimation({ isActive, newLevel, onComplete }: LevelUpAnimationProps) {
-  const [particles, setParticles] = useState<Particle[]>([])
+  const particlesRef = useRef<Particle[]>([])
   const [animationStage, setAnimationStage] = useState<'burst' | 'glow' | 'complete'>('burst')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
@@ -67,23 +67,23 @@ export default function LevelUpAnimation({ isActive, newLevel, onComplete }: Lev
       })
     }
     
-    setParticles(newParticles)
+    particlesRef.current = newParticles
   }
 
   // Обновление частиц
   const updateParticles = () => {
-    setParticles(prev => prev.map(particle => {
-      const newParticle = {
+    const updated = particlesRef.current
+      .map(particle => ({
         ...particle,
         x: particle.x + particle.vx,
         y: particle.y + particle.vy,
         life: particle.life - 1,
-        vx: particle.vx * 0.98, // Замедление
-        vy: particle.vy * 0.98 + 0.1 // Гравитация
-      }
-      
-      return newParticle
-    }).filter(p => p.life > 0))
+        vx: particle.vx * 0.98,
+        vy: particle.vy * 0.98 + 0.1
+      }))
+      .filter(p => p.life > 0)
+
+    particlesRef.current = updated
   }
 
   // Рендеринг частиц на Canvas
@@ -148,9 +148,16 @@ export default function LevelUpAnimation({ isActive, newLevel, onComplete }: Lev
   useEffect(() => {
     if (!isActive) return
 
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d') || null
+    if (!canvas || !ctx) return
+
     const animate = () => {
+      // Очистка
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      // Обновление и отрисовка
       updateParticles()
-      renderParticles()
+      renderParticles(ctx, particlesRef.current)
       animationFrameRef.current = requestAnimationFrame(animate)
     }
 
@@ -177,14 +184,14 @@ export default function LevelUpAnimation({ isActive, newLevel, onComplete }: Lev
     }
 
     runAnimation()
-    animate()
+    animationFrameRef.current = requestAnimationFrame(animate)
 
     return () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [isActive])
+  }, [isActive, renderParticles, onComplete])
 
   // Обновление размера canvas
   useEffect(() => {

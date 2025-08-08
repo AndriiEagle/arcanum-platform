@@ -4,9 +4,7 @@ import { createServerClient as createClient } from '../../../../lib/supabase/ser
 import { logTokenUsage, getUserTokenUsage } from '../../../../lib/services/tokenService'
 import { calculateCost } from '../../../../lib/config/aiModels'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Инициализация OpenAI клиента переносится внутрь обработчика POST, чтобы избежать падения сборки без ключа
 
 const ARCANUM_BRAIN_PROMPT = `Ты — Chief Orchestrator AI платформы Arcanum...` // [existing prompt content]
 
@@ -120,6 +118,8 @@ export async function POST(request: NextRequest) {
     if (!process.env.OPENAI_API_KEY) {
       return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 })
     }
+
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
     console.log('Arcanum Brain processing message:', message, 'for user:', userId)
 
