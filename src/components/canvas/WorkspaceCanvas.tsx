@@ -30,22 +30,9 @@ export default function WorkspaceCanvas() {
     positionY: 0,
   })
 
-  const handleTransformed = useCallback((ref: any, state: { scale: number; positionX: number; positionY: number }) => {
-    setTransformState((prev) => {
-      if (
-        prev.scale === state.scale &&
-        prev.positionX === state.positionX &&
-        prev.positionY === state.positionY
-      ) {
-        return prev
-      }
-      return {
-        scale: state.scale,
-        positionX: state.positionX,
-        positionY: state.positionY,
-      }
-    })
-  }, [])
+  // NOTE: отключено обновление transformState во время трансформаций, чтобы
+  // исключить потенциальный цикл обновлений. При необходимости можно вернуть
+  // обработчик с дебаунсом/raf.
 
   // Состояние для управления интерфейсом
   const [showControlsInfo, setShowControlsInfo] = useState(false)
@@ -292,7 +279,6 @@ export default function WorkspaceCanvas() {
           pinch={{
             disabled: false
           }}
-          onTransformed={handleTransformed}
         >
           <TransformComponent
             wrapperClass="w-full h-full"
