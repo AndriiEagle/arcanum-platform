@@ -7,6 +7,7 @@ import { useEffect } from 'react'
 import { useEffectsStore } from '../../../lib/stores/effectsStore'
 import { useTokenStore } from '../../../lib/stores/tokenStore'
 import React from 'react'
+import AuthButton from '../auth/AuthButton'
 
 // Динамические импорты компонентов для избежания SSR проблем
 const SidePanel = dynamic(() => import("@/components/layout/SidePanel"), {
@@ -33,6 +34,18 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
   const setLimit = useTokenStore(s => s.setLimit)
 
   const processedCheckoutRef = React.useRef(false)
+  const [safeMode, setSafeMode] = React.useState(false)
+
+  // SAFE MODE: включается через ?safe=1 или localStorage('SAFE_MODE')==='1'
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const url = new URL(window.location.href)
+      const safe = url.searchParams.get('safe')
+      const local = localStorage.getItem('SAFE_MODE')
+      if (safe === '1' || local === '1') setSafeMode(true)
+    } catch {}
+  }, [])
 
   // Отслеживаем успех Stripe Checkout (?checkout=success)
   useEffect(() => {
@@ -77,6 +90,24 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
       window.history.replaceState({}, '', cleanUrl)
     }
   }, [setPremiumStatus, setLimit, triggerFireworks])
+
+  if (safeMode) {
+    return (
+      <ErrorBoundary>
+        <AuthProvider>
+          <div className="min-h-screen w-full flex items-center justify-center bg-gray-900">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 max-w-md w-full text-center">
+              <div className="text-2xl font-bold text-white mb-2">Safe Mode</div>
+              <p className="text-gray-400 mb-4">Упрощённый рендер без тяжёлых компонентов для диагностики.</p>
+              <div className="flex items-center justify-center">
+                <AuthButton />
+              </div>
+            </div>
+          </div>
+        </AuthProvider>
+      </ErrorBoundary>
+    )
+  }
 
   return (
     <ErrorBoundary>
