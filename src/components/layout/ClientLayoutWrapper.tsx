@@ -34,7 +34,17 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
   const setLimit = useTokenStore(s => s.setLimit)
 
   const processedCheckoutRef = React.useRef(false)
-  const [safeMode, setSafeMode] = React.useState(false)
+  const [safeMode, setSafeMode] = React.useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      const url = new URL(window.location.href)
+      const safe = url.searchParams.get('safe')
+      const local = localStorage.getItem('SAFE_MODE')
+      return safe === '1' || local === '1'
+    } catch {
+      return false
+    }
+  })
 
   // SAFE MODE: включается через ?safe=1 или localStorage('SAFE_MODE')==='1'
   React.useEffect(() => {
