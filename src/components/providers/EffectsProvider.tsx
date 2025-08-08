@@ -21,10 +21,23 @@ interface EffectsProviderProps {
 
 export function EffectsProvider({ children }: EffectsProviderProps) {
   const [isClient, setIsClient] = useState(false)
+  const demoAllowedRef = React.useRef(false)
   
   // Инициализация только на клиентской стороне
   useEffect(() => {
     setIsClient(true)
+  }, [])
+
+  // Определение разрешения на DEMO-инициализацию (по умолчанию выключено)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const url = new URL(window.location.href)
+      const demo = url.searchParams.get('demo')
+      const local = localStorage.getItem('ENABLE_DEMO')
+      const env = process.env.NEXT_PUBLIC_ENABLE_DEMO === '1'
+      demoAllowedRef.current = demo === '1' || local === '1' || env
+    } catch {}
   }, [])
 
   const { 
@@ -46,6 +59,7 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
     if (!isClient) return
     if (isAuthenticated) return
     if (demoInitDoneRef.current) return
+    if (!demoAllowedRef.current) return
     demoInitDoneRef.current = true
     console.log('[DBG][EffectsProvider] schedule demo user init in 1s')
     const timer = setTimeout(() => {
