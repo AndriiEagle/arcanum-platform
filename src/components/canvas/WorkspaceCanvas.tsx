@@ -366,6 +366,7 @@ export default function WorkspaceCanvas() {
                   key={widget.id}
                   id={widget.id}
                   initialPosition={widget.position}
+                  disabled={!!minimizedMap[widget.id]}
                 >
                   <div className="relative">
                     {/* Кнопка сворачивания/разворачивания */}

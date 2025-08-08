@@ -8,13 +8,15 @@ interface DraggableWidgetProps {
   children: React.ReactNode
   initialPosition: { x: number; y: number }
   className?: string
+  disabled?: boolean
 }
 
 export default function DraggableWidget({ 
   id, 
   children, 
   initialPosition,
-  className = ''
+  className = '',
+  disabled = false
 }: DraggableWidgetProps) {
   const {
     attributes,
@@ -24,6 +26,7 @@ export default function DraggableWidget({
     isDragging,
   } = useDraggable({
     id: id,
+    disabled
   })
 
   const style = {
@@ -50,7 +53,7 @@ export default function DraggableWidget({
         ${className}
         ${isDragging ? 'opacity-50 scale-105' : 'opacity-100'}
         transition-all duration-200 ease-out
-        cursor-grab active:cursor-grabbing
+        ${disabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}
         hover:shadow-xl
       `}
       onMouseDown={handleMouseDown}
