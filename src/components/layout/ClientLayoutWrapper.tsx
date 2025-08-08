@@ -45,6 +45,17 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
       return false
     }
   })
+  const [diagMode, setDiagMode] = React.useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      const url = new URL(window.location.href)
+      const diag = url.searchParams.get('diag')
+      const local = localStorage.getItem('DIAG_MODE')
+      return diag === '1' || local === '1'
+    } catch {
+      return false
+    }
+  })
 
   // SAFE MODE: включается через ?safe=1 или localStorage('SAFE_MODE')==='1'
   React.useEffect(() => {
@@ -54,6 +65,9 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
       const safe = url.searchParams.get('safe')
       const local = localStorage.getItem('SAFE_MODE')
       if (safe === '1' || local === '1') setSafeMode(true)
+      const diag = url.searchParams.get('diag')
+      const diagLocal = localStorage.getItem('DIAG_MODE')
+      if (diag === '1' || diagLocal === '1') setDiagMode(true)
     } catch {}
   }, [])
 
@@ -125,15 +139,41 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
         <EffectsProvider>
           <div className="flex h-screen w-full">
             {/* Левая боковая панель */}
-            <SidePanel position="left" />
+            {diagMode ? (
+              <ErrorBoundary fallback={({ error }) => (
+                <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Left panel error: {error.message}</div>
+              )}>
+                <SidePanel position="left" />
+              </ErrorBoundary>
+            ) : (
+              <SidePanel position="left" />
+            )}
             
             {/* Центральная область контента */}
-            <MainContentArea>
-              {children}
-            </MainContentArea>
+            {diagMode ? (
+              <ErrorBoundary fallback={({ error }) => (
+                <div className="flex-1 bg-gray-900 text-red-300 p-4">⚠️ Main content error: {error.message}</div>
+              )}>
+                <MainContentArea>
+                  {children}
+                </MainContentArea>
+              </ErrorBoundary>
+            ) : (
+              <MainContentArea>
+                {children}
+              </MainContentArea>
+            )}
             
             {/* Правая боковая панель */}
-            <SidePanel position="right" />
+            {diagMode ? (
+              <ErrorBoundary fallback={({ error }) => (
+                <div className="w-[15%] bg-gray-800 text-red-300 p-4">⚠️ Right panel error: {error.message}</div>
+              )}>
+                <SidePanel position="right" />
+              </ErrorBoundary>
+            ) : (
+              <SidePanel position="right" />
+            )}
           </div>
         </EffectsProvider>
       </AuthProvider>
