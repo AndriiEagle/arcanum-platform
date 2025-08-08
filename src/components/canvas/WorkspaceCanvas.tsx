@@ -271,7 +271,7 @@ export default function WorkspaceCanvas() {
             disabled: middleMousePanEnabled ? !isMiddlePanning : false,
             velocityDisabled: true,
             activationKeys: [],
-            excluded: ['.draggable-widget', '.widget-content', 'button', 'input', 'textarea']
+            excluded: ['draggable-widget', 'widget-content', 'button', 'input', 'textarea']
           }}
           doubleClick={{ 
             disabled: true
