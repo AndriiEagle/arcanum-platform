@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useEffectsStore } from '../../../lib/stores/effectsStore'
 import { useAuthStore } from '../../../lib/stores/authStore'
 import dynamic from 'next/dynamic'
@@ -72,6 +72,16 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
     return () => window.removeEventListener('keydown', handleKeyPress)
   }, [isClient, currentLevel, triggerLevelUp])
 
+  const handleLevelUpComplete = useCallback(() => {
+    console.log('[DBG][EffectsProvider] completeLevelUp()')
+    completeLevelUp()
+  }, [completeLevelUp])
+
+  const handleFireworksComplete = useCallback(() => {
+    console.log('[DBG][EffectsProvider] completeFireworks()')
+    completeFireworks()
+  }, [completeFireworks])
+
   if (!isClient) {
     return <>{children}</>
   }
@@ -84,13 +94,13 @@ export function EffectsProvider({ children }: EffectsProviderProps) {
       <LevelUpAnimation
         isActive={isLevelUpActive}
         newLevel={currentLevel}
-        onComplete={() => { console.log('[DBG][EffectsProvider] completeLevelUp()'); completeLevelUp(); }}
+        onComplete={handleLevelUpComplete}
       />
 
       {/* Глобальный салют (после оплаты) */}
       <Fireworks
         isActive={isFireworksActive}
-        onComplete={() => { console.log('[DBG][EffectsProvider] completeFireworks()'); completeFireworks(); }}
+        onComplete={handleFireworksComplete}
       />
     </>
   )

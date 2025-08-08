@@ -22,9 +22,15 @@ interface Particle {
 
 export default function LevelUpAnimation({ isActive, newLevel, onComplete }: LevelUpAnimationProps) {
   const particlesRef = useRef<Particle[]>([])
+  const onCompleteRef = useRef(onComplete)
   const [animationStage, setAnimationStage] = useState<'burst' | 'glow' | 'complete'>('burst')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animationFrameRef = useRef<number>()
+
+  // Держим актуальный onComplete в ref без перезапуска основного эффекта
+  useEffect(() => {
+    onCompleteRef.current = onComplete
+  }, [onComplete])
 
   // Создание частиц
   const createParticles = () => {
@@ -179,7 +185,7 @@ export default function LevelUpAnimation({ isActive, newLevel, onComplete }: Lev
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current)
         }
-        onComplete()
+        onCompleteRef.current?.()
       }, 3000)
     }
 
@@ -191,7 +197,7 @@ export default function LevelUpAnimation({ isActive, newLevel, onComplete }: Lev
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [isActive, renderParticles, onComplete])
+  }, [isActive, renderParticles])
 
   // Обновление размера canvas
   useEffect(() => {
