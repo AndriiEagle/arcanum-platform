@@ -6,7 +6,7 @@ interface UIState {
   isRightPanelOpen: boolean
   
   // Активный режим центральной панели
-  activeView: 'dashboard' | 'resonance'
+  activeView: 'dashboard' | 'resonance' | 'agent'
   
   // Состояние диалогового окна
   isDialogueOpen: boolean
@@ -24,7 +24,7 @@ interface UIState {
   setRightPanel: (isOpen: boolean) => void
   
   // Управление режимами
-  setActiveView: (view: 'dashboard' | 'resonance') => void
+  setActiveView: (view: 'dashboard' | 'resonance' | 'agent') => void
   toggleView: () => void
   
   // Управление диалоговым окном
@@ -65,9 +65,9 @@ export const useUIStore = create<UIState>((set, get) => ({
   setRightPanel: (isOpen: boolean) => set({ isRightPanelOpen: isOpen }),
   
   // Управление режимами
-  setActiveView: (view: 'dashboard' | 'resonance') => set((state) => {
-    // При переключении в режим резонанса сворачиваем панели до 5%
-    if (view === 'resonance') {
+  setActiveView: (view: 'dashboard' | 'resonance' | 'agent') => set((state) => {
+    // В режиме резонанса и агент-дашборда сворачиваем панели
+    if (view === 'resonance' || view === 'agent') {
       return {
         activeView: view,
         isLeftPanelOpen: false,
@@ -85,7 +85,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   toggleView: () => set((state) => {
     const newView = state.activeView === 'dashboard' ? 'resonance' : 'dashboard'
     // Используем логику из setActiveView
-    if (newView === 'resonance') {
+    if (newView === 'resonance' || newView === 'agent') {
       return {
         activeView: newView,
         isLeftPanelOpen: false,

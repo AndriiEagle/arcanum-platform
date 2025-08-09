@@ -2,6 +2,7 @@
 
 import DashboardView from '../views/DashboardView'
 import ResonanceView from '../views/ResonanceView'
+import AgentResonanceDashboardView from '../views/AgentResonanceDashboardView'
 import { useUIStore } from '../../../lib/stores/uiStore'
 import AuthButton from '../auth/AuthButton'
 import ModelSelector from '../ai/ModelSelector'
@@ -42,16 +43,26 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
             >
               🎯 Режим Дашборда
             </button>
-            <button 
-              onClick={() => { if (typeof window !== 'undefined') { console.log('[DBG][MainContentArea] setActiveView("resonance")'); setActiveView('resonance') } }}
-              className={`px-4 py-2 rounded text-sm font-medium transition-all duration-200 ${
-                activeView === 'resonance'
-                  ? 'bg-blue-600 text-white shadow-lg scale-105'
-                  : 'bg-blue-600/50 hover:bg-blue-600/70 text-blue-200 hover:text-white'
-              }`}
-            >
-              🌐 Режим Резонанса
-            </button>
+                         <button 
+               onClick={() => { if (typeof window !== 'undefined') { console.log('[DBG][MainContentArea] setActiveView("resonance")'); setActiveView('resonance') } }}
+               className={`px-4 py-2 rounded text-sm font-medium transition-all duration-200 ${
+                 activeView === 'resonance'
+                   ? 'bg-blue-600 text-white shadow-lg scale-105'
+                   : 'bg-blue-600/50 hover:bg-blue-600/70 text-blue-200 hover:text-white'
+               }`}
+             >
+               🌐 Режим Резонанса
+             </button>
+             <button 
+               onClick={() => { if (typeof window !== 'undefined') { console.log('[DBG][MainContentArea] setActiveView("agent")'); setActiveView('agent') } }}
+               className={`px-4 py-2 rounded text-sm font-medium transition-all duration-200 ${
+                 activeView === 'agent'
+                   ? 'bg-emerald-600 text-white shadow-lg scale-105'
+                   : 'bg-emerald-600/50 hover:bg-emerald-600/70 text-emerald-200 hover:text-white'
+               }`}
+             >
+               🧠 Агент-дашборд
+             </button>
             
             {/* Тогглы UX */}
             <div className="border-l border-gray-600 pl-4 flex items-center space-x-3">
@@ -96,8 +107,10 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
         <ModelSelector renderPanel={true} />
         {activeView === 'dashboard' ? (
           <DashboardView />
-        ) : (
+        ) : activeView === 'resonance' ? (
           <ResonanceView />
+        ) : (
+          <AgentResonanceDashboardView />
         )}
         
         {/* Дополнительный контент от children */}
