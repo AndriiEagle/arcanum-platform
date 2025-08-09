@@ -38,8 +38,9 @@ interface AuthState {
   generateDemoUser: () => void
 }
 
-// Создание Supabase клиента
-const supabase = createClient()
+function getSupabase() {
+  return createClient()
+}
 
 // Генерация уникального ID для demo
 const generateUserId = () => {
@@ -63,6 +64,7 @@ const createDemoUser = (): User => {
 // Получение профиля пользователя из базы данных
 const fetchUserProfile = async (userId: string): Promise<Partial<User> | null> => {
   try {
+    const supabase = getSupabase()
     const { data, error } = await supabase
       .rpc('get_user_profile', { user_uuid: userId })
     
@@ -103,6 +105,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       
       // Реальная авторизация через Supabase
+      const supabase = getSupabase()
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -153,6 +156,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     
     try {
+      const supabase = getSupabase()
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -193,6 +197,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // =================================================================
   logout: async () => {
     try {
+      const supabase = getSupabase()
       await supabase.auth.signOut()
       set({ 
         user: null, 
@@ -249,6 +254,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     
     try {
       // Проверяем текущую сессию
+      const supabase = getSupabase()
       const { data: { session }, error } = await supabase.auth.getSession()
       
       if (error) {
@@ -287,7 +293,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       
       // Подписываемся на изменения состояния авторизации
-      supabase.auth.onAuthStateChange(async (event, session) => {
+      const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
           const profile = await fetchUserProfile(session.user.id)
           
@@ -314,6 +320,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           })
         }
       })
+      // Note: subscription cleanup can be handled by caller if needed
+      void sub
       
     } catch (error) {
       console.error('Initialize error:', error)

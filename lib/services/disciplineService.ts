@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/client'
+import { createServerClient } from '../supabase/server'
 import { getMascots, getTelegramSettings } from './customizationService'
 
 export interface TaskDeclaration {
@@ -27,9 +27,8 @@ export interface DisciplineEvent {
   created_at: string
 }
 
-const supabase = createClient()
-
 export async function declareTask(userId: string, sphereId: string | null, title: string, dueAtISO: string, taskId?: string | null) {
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from('task_declarations')
     .insert({ user_id: userId, sphere_id: sphereId, task_id: taskId ?? null, title, due_at: dueAtISO, status: 'declared' })
@@ -40,6 +39,7 @@ export async function declareTask(userId: string, sphereId: string | null, title
 }
 
 export async function markDeclarationCompleted(userId: string, declarationId: string) {
+  const supabase = createServerClient()
   const { error } = await supabase
     .from('task_declarations')
     .update({ status: 'completed', completed_at: new Date().toISOString() })
@@ -63,6 +63,7 @@ async function sendEmail(to: string | undefined, subject: string, html: string) 
 }
 
 export async function dailyReview(userId: string) {
+  const supabase = createServerClient()
   const nowISO = new Date().toISOString()
 
   const { data: declarations, error } = await supabase

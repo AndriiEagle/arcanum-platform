@@ -1,6 +1,4 @@
-import { createClient } from '../supabase/client'
-
-const supabase = createClient()
+import { createServerClient } from '../supabase/server'
 
 export interface OAuthTokens {
   access_token: string
@@ -11,6 +9,7 @@ export interface OAuthTokens {
 }
 
 export async function saveGoogleTokens(userId: string, tokens: OAuthTokens) {
+  const supabase = createServerClient()
   const { error } = await supabase
     .from('user_integrations')
     .upsert({
@@ -27,6 +26,7 @@ export async function saveGoogleTokens(userId: string, tokens: OAuthTokens) {
 }
 
 export async function getGoogleAccessToken(userId: string): Promise<string | null> {
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from('user_integrations')
     .select('access_token, expiry_date')

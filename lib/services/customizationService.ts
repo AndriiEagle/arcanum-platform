@@ -1,4 +1,5 @@
-import { createClient } from '../supabase/client'
+import { createClient as createBrowserClient } from '../supabase/client'
+import { createServerClient } from '../supabase/server'
 
 export interface UserCustomizationConfig {
   avatarUrl?: string
@@ -15,9 +16,15 @@ export interface UserCustomizationConfig {
   }
 }
 
-const supabase = createClient()
+function getSupabase() {
+  if (typeof window === 'undefined') {
+    return createServerClient()
+  }
+  return createBrowserClient()
+}
 
 export async function getCustomization(userId: string): Promise<UserCustomizationConfig> {
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('ui_layouts')
     .select('id, layout_config')
@@ -36,6 +43,7 @@ export async function getCustomization(userId: string): Promise<UserCustomizatio
 }
 
 async function upsertCustomization(userId: string, patch: Partial<UserCustomizationConfig>): Promise<UserCustomizationConfig> {
+  const supabase = getSupabase()
   const current = await getCustomization(userId)
   const next: UserCustomizationConfig = {
     ...current,

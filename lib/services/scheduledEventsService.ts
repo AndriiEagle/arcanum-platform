@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/client'
+import { createServerClient } from '../supabase/server'
 
 export type ScheduledEventType = 'image' | 'video' | 'audio' | 'mascots' | 'text'
 
@@ -14,9 +14,8 @@ export interface ScheduledEvent {
   updated_at: string
 }
 
-const supabase = createClient()
-
 export async function createEvent(userId: string, title: string, eventType: ScheduledEventType, scheduledAtISO: string, payload: Record<string, unknown>) {
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from('scheduled_events')
     .insert({ user_id: userId, title, event_type: eventType, scheduled_at: scheduledAtISO, payload })
@@ -27,6 +26,7 @@ export async function createEvent(userId: string, title: string, eventType: Sche
 }
 
 export async function listEvents(userId: string) {
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from('scheduled_events')
     .select('*')
@@ -37,6 +37,7 @@ export async function listEvents(userId: string) {
 }
 
 export async function cancelEvent(userId: string, id: string) {
+  const supabase = createServerClient()
   const { error } = await supabase
     .from('scheduled_events')
     .update({ status: 'canceled', updated_at: new Date().toISOString() })
@@ -46,6 +47,7 @@ export async function cancelEvent(userId: string, id: string) {
 }
 
 export async function getDueEvents(nowISO: string) {
+  const supabase = createServerClient()
   const { data, error } = await supabase
     .from('scheduled_events')
     .select('*')
@@ -56,6 +58,7 @@ export async function getDueEvents(nowISO: string) {
 }
 
 export async function markFired(userId: string, id: string) {
+  const supabase = createServerClient()
   const { error } = await supabase
     .from('scheduled_events')
     .update({ status: 'fired', updated_at: new Date().toISOString() })

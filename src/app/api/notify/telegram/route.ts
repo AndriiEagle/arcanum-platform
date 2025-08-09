@@ -3,40 +3,15 @@ import { getTelegramSettings } from '../../../../../lib/services/customizationSe
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}))
-    const { userId, message } = body || {}
-    if (!userId || !message) {
-      return NextResponse.json({ ok: false, error: 'userId and message required' }, { status: 400 })
+    const { userId, message } = await req.json()
+    const tg = await getTelegramSettings(userId)
+    if (!tg?.enabled || !tg.friendChatId) {
+      return NextResponse.json({ ok: false, error: 'Telegram not configured' }, { status: 400 })
     }
-
-    const botToken = process.env.TELEGRAM_BOT_TOKEN
-    if (!botToken) {
-      return NextResponse.json({ ok: true, skipped: true, reason: 'Bot token not configured' })
-    }
-
-    const settings = await getTelegramSettings(userId)
-    if (!settings?.enabled || !settings?.friendChatId) {
-      return NextResponse.json({ ok: true, skipped: true, reason: 'Telegram disabled or friendChatId missing' })
-    }
-
-    const text = settings?.friendName
-      ? `Hi ${settings.friendName}! User ${userId} update:\n${message}`
-      : `User ${userId} update:\n${message}`
-
-    const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: settings.friendChatId, text })
-    })
-
-    if (!resp.ok) {
-      const errText = await resp.text()
-      return NextResponse.json({ ok: false, error: errText }, { status: 500 })
-    }
-
+    console.log('Send Telegram to friend:', tg.friendChatId, message)
     return NextResponse.json({ ok: true })
   } catch (err: any) {
-    console.error('Telegram send error:', err)
+    console.error('telegram notify error:', err)
     return NextResponse.json({ ok: false, error: err?.message || 'Unknown error' }, { status: 500 })
   }
 } 
