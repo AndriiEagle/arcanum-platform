@@ -21,6 +21,7 @@ const MainContentArea = dynamic(() => import("@/components/layout/MainContentAre
 });
 
 const EffectsProvider = dynamic(() => import("@/components/providers/EffectsProvider"), { ssr: false });
+const MusicPlayerWidget = dynamic(() => import("@/components/widgets/MusicPlayerWidget"), { ssr: false })
 
 interface ClientLayoutWrapperProps {
   children: React.ReactNode;
@@ -157,6 +158,8 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
                 <SidePanel position="right" />
               )}
             </div>
+            {/** Music player visible globally even with effects off */}
+            <MusicPlayerWidget />
           </>
         ) : (
           <EffectsProvider>
@@ -198,6 +201,8 @@ export default function ClientLayoutWrapper({ children }: ClientLayoutWrapperPro
                 <SidePanel position="right" />
               )}
             </div>
+            {/** Music player */}
+            <MusicPlayerWidget />
           </EffectsProvider>
         )}
       </AuthProvider>
