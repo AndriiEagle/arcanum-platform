@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/client'
+import { createServerClient } from '../supabase/server'
 
 interface TokenUsage {
   user_id: string
@@ -14,7 +14,7 @@ interface TokenUsage {
  * Используется после каждого вызова OpenAI API
  */
 export async function logTokenUsage(usage: TokenUsage): Promise<void> {
-  const supabase = createClient()
+  const supabase = createServerClient()
   
   const { error } = await supabase
     .from('ai_model_usage')
@@ -35,7 +35,7 @@ export async function logTokenUsage(usage: TokenUsage): Promise<void> {
  * Используется для проверки лимитов перед API вызовами
  */
 export async function getUserTokenUsage(userId: string): Promise<number> {
-  const supabase = createClient()
+  const supabase = createServerClient()
   
   const { data, error } = await supabase
     .from('ai_model_usage')
@@ -61,7 +61,7 @@ export async function getUserTokenStats(userId: string): Promise<{
   thisMonth: number
   totalCost: number
 }> {
-  const supabase = createClient()
+  const supabase = createServerClient()
   
   const now = new Date()
   const dayAgo = new Date(now.getTime() - 24*60*60*1000)

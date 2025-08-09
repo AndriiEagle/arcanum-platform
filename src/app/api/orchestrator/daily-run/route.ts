@@ -12,7 +12,7 @@ async function getAllUserIds(supabase: ReturnType<typeof createServerClient>): P
   const { data, error } = await supabase.from('life_spheres').select('user_id').neq('sphere_code', null)
   if (error) throw error
   const set = new Set<string>()
-  for (const row of data || []) set.add(row.user_id)
+  for (const row of (data as any) || []) set.add(row.user_id)
   return Array.from(set)
 }
 
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         .in('id', ids)
       if (dErr) throw dErr
       const effectCountById = new Map<string, number>()
-      for (const t of details || []) {
+      for (const t of (details as any) || []) {
         const eff = (t.expected_effect || {}) as Record<string, number>
         effectCountById.set(t.id, Object.keys(eff).length)
       }
