@@ -370,17 +370,17 @@ export default function WorkspaceCanvas() {
       )}
 
       <DndContext onDragEnd={handleDragEnd}>
-        <TransformWrapper
-          initialScale={1}
-          minScale={0.1}
-          maxScale={5}
-          centerOnInit={false}
-          centerZoomedOut={false}
+                  <TransformWrapper
+          initialScale={1.2}
+          minScale={0.25}
+          maxScale={8}
+          centerOnInit={true}
+          centerZoomedOut={true}
           limitToBounds={false}
           wheel={{ 
             wheelDisabled: false,
             touchPadDisabled: false,
-            step: 0.15,
+            step: 0.2,
             activationKeys: [],
             excluded: []
           }}
@@ -391,7 +391,7 @@ export default function WorkspaceCanvas() {
             excluded: ['draggable-widget', 'widget-content', 'button', 'input', 'textarea']
           }}
           doubleClick={{ 
-            disabled: true
+            disabled: false
           }}
           pinch={{
             disabled: false
@@ -483,11 +483,10 @@ export default function WorkspaceCanvas() {
       </DndContext>
 
       {/* Панель управления масштабом */}
-      <div className="absolute bottom-4 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700 shadow-xl">
-        <div className="text-xs text-gray-400 mb-2">Масштаб: {transformState.scale.toFixed(2)}x</div>
-        <div className="text-xs text-gray-400">X: {transformState.positionX.toFixed(0)}</div>
-        <div className="text-xs text-gray-400">Y: {transformState.positionY.toFixed(0)}</div>
-        <div className="text-xs text-green-400 mt-2">Виджетов: {widgets.length}</div>
+      <div className="absolute bottom-4 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg p-3 border border-gray-700 shadow-xl pointer-events-none">
+        <div className="text-xs text-gray-400 mb-1">Масштаб: {transformState.scale.toFixed(2)}x</div>
+        <div className="text-[10px] text-gray-500">X: {transformState.positionX.toFixed(0)} • Y: {transformState.positionY.toFixed(0)}</div>
+        <div className="text-[10px] text-green-400 mt-1">Виджетов: {widgets.length}</div>
       </div>
 
       {/* Кнопка показа/скрытия информации об управлении */}
