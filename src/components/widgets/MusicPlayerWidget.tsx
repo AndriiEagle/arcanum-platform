@@ -124,7 +124,6 @@ export default function MusicPlayerWidget() {
     try {
       const files = Array.from(e.target.files || [])
       if (!files.length) return
-      // For local file URLs, use object URLs
       const newTracks = files.map((f, idx) => ({
         id: `u_${Date.now()}_${idx}`,
         title: f.name.replace(/\.[^/.]+$/, ''),
@@ -132,7 +131,6 @@ export default function MusicPlayerWidget() {
       }))
       setPlaylist([...(playlist || []), ...newTracks] as any)
     } finally {
-      // reset input
       e.target.value = ''
     }
   }
@@ -228,14 +226,14 @@ export default function MusicPlayerWidget() {
               </button>
             ))}
             {!playlist.length && (
-              <div className="text-sm text-gray-400">Добавьте mp3 файлы в папку public/audio и обновите страницу.</div>
+              <div className="text-sm text-gray-400">Добавьте mp3/wav/ogg файлы в папку public/audio и обновите страницу.</div>
             )}
           </div>
 
           <div className="flex items-center justify-between gap-2">
             <label className="text-xs text-gray-300 px-2 py-1 bg-gray-700 rounded cursor-pointer">
-              + Добавить треки (mp3)
-              <input type="file" accept="audio/mpeg" multiple className="hidden" onChange={onAddTracks} />
+              + Добавить треки (mp3, wav, ogg)
+              <input type="file" accept="audio/mpeg,audio/wav,audio/ogg" multiple className="hidden" onChange={onAddTracks} />
             </label>
             {errorMessage && (
               <div className="text-xs text-red-400" title={errorMessage}>Ошибка воспроизведения</div>
