@@ -455,17 +455,22 @@ export default function WorkspaceCanvas() {
                     </button>
 
                     {minimizedMap[widget.id] ? (
-                      <button
-                        onMouseDown={(e)=>{ e.stopPropagation(); e.preventDefault() }}
-                        onClick={(e)=>{ e.stopPropagation(); toggleMinimized(widget.id) }}
-                        className="draggable-widget pointer-events-auto bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-700 flex items-center space-x-2 text-sm text-white"
-                        title="Развернуть"
-                        role="button"
-                        aria-label="Развернуть виджет"
+                      <div
+                        className="draggable-widget pointer-events-auto bg-gray-800/90 backdrop-blur-sm rounded-lg pl-3 pr-8 py-2 border border-gray-700 flex items-center space-x-2 text-sm text-white min-w-[140px]"
+                        title="Перетащи, чтобы переместить"
+                        role="group"
+                        aria-label="Свернутый виджет"
                       >
                         <span className="text-lg">{getWidgetIcon(widget)}</span>
                         <span className="opacity-90">{getWidgetTitle(widget)}</span>
-                      </button>
+                        <button
+                          onPointerDown={(e)=>{ e.stopPropagation(); e.preventDefault() }}
+                          onClick={(e)=>{ e.stopPropagation(); toggleMinimized(widget.id) }}
+                          className="absolute right-1 top-1 w-5 h-5 rounded bg-gray-900 border border-gray-700 text-gray-300 hover:text-white"
+                          title="Развернуть"
+                          aria-label="Развернуть виджет"
+                        >▣</button>
+                      </div>
                     ) : (
                       renderWidgetContent(widget)
                     )}
