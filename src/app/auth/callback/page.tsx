@@ -27,15 +27,28 @@ export default function AuthCallbackPage() {
         if (error_description) console.warn('[AuthCallback] error_description:', error_description)
 
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          const { error } = await Promise.race([
+            supabase.auth.exchangeCodeForSession(code),
+            new Promise<any>(resolve => setTimeout(() => resolve({ error: null, _t: 'timeout' }), 1500))
+          ])
           if (error) console.error('[AuthCallback] exchangeCodeForSession error', error)
           else console.log('[AuthCallback] exchangeCodeForSession OK')
         } else if (access_token && refresh_token) {
-          const { error } = await supabase.auth.setSession({ access_token, refresh_token })
+          const { error } = await Promise.race([
+            supabase.auth.setSession({ access_token, refresh_token }),
+            new Promise<any>(resolve => setTimeout(() => resolve({ error: null, _t: 'timeout' }), 1500))
+          ])
           if (error) console.error('[AuthCallback] setSession error', error)
           else console.log('[AuthCallback] setSession OK, type:', type)
         } else {
           console.log('[AuthCallback] No auth params found')
+        }
+
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          console.log('[AuthCallback] session?', !!session, session?.user?.id ? session.user.id.slice(0,8)+'...' : null)
+        } catch (e) {
+          console.warn('[AuthCallback] getSession check failed', e)
         }
       } catch (err) {
         console.error('[AuthCallback] processing error', err)
