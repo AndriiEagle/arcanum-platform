@@ -29,6 +29,20 @@ export default function MusicPlayerWidget() {
   const setTrackByIndex = useMusicStore(s => s.setTrackByIndex)
   const setLoop = useMusicStore(s => s.setLoop)
   const setShuffle = useMusicStore(s => s.setShuffle)
+  const setPlaylist = useMusicStore(s => s.setPlaylist)
+
+  // Attempt to auto-detect files under /public/audio on first mount (static list)
+  useEffect(() => {
+    // If playlist is empty, try a default static manifest
+    if (playlist.length) return
+    const defaults = [
+      { id: 't1', title: 'Track 1', src: '/audio/track1.mp3' },
+      { id: 't2', title: 'Track 2', src: '/audio/track2.mp3' },
+      { id: 't3', title: 'Track 3', src: '/audio/track3.mp3' }
+    ]
+    setPlaylist(defaults as any)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Ensure audio element exists only on client
   useEffect(() => {
@@ -48,7 +62,6 @@ export default function MusicPlayerWidget() {
 
     const onError = () => {
       setErrorMessage('Ошибка воспроизведения. Проверьте наличие файла в /public/audio')
-      // попытка перейти к следующему треку
       useMusicStore.getState().nextTrack()
     }
 
@@ -60,17 +73,15 @@ export default function MusicPlayerWidget() {
     }
   }, [])
 
-  // Sync audio element properties
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
     audio.muted = muted || !enabled
     audio.volume = volume
-    audio.loop = false // мы управляем циклом сами для совместимости
+    audio.loop = false
   }, [muted, volume, enabled])
 
-  // Load current track src
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -91,7 +102,6 @@ export default function MusicPlayerWidget() {
     }
   }, [currentTrack?.src])
 
-  // React to play/pause changes
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
@@ -107,8 +117,25 @@ export default function MusicPlayerWidget() {
     }
   }, [playing, enabled])
 
-  // UI helpers
   const title = useMemo(() => currentTrack?.title ?? '—', [currentTrack?.title])
+
+  // File input handler to add custom tracks
+  const onAddTracks: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    try {
+      const files = Array.from(e.target.files || [])
+      if (!files.length) return
+      // For local file URLs, use object URLs
+      const newTracks = files.map((f, idx) => ({
+        id: `u_${Date.now()}_${idx}`,
+        title: f.name.replace(/\.[^/.]+$/, ''),
+        src: URL.createObjectURL(f)
+      }))
+      setPlaylist([...(playlist || []), ...newTracks] as any)
+    } finally {
+      // reset input
+      e.target.value = ''
+    }
+  }
 
   return (
     <div className="fixed bottom-4 right-4 z-[10000] select-none">
@@ -178,7 +205,7 @@ export default function MusicPlayerWidget() {
       </div>
 
       {expanded && (
-        <div className="mt-2 bg-gray-800/95 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg p-3 w-[320px]">
+        <div className="mt-2 bg-gray-800/95 backdrop-blur-md border border-gray-700 rounded-xl shadow-lg p-3 w-[360px]">
           <div className="flex items-center justify-between mb-3">
             <label className="flex items-center gap-2 text-sm text-gray-200">
               <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
@@ -190,7 +217,7 @@ export default function MusicPlayerWidget() {
             </label>
           </div>
 
-          <div className="max-h-48 overflow-y-auto space-y-1">
+          <div className="max-h-48 overflow-y-auto space-y-1 mb-2">
             {playlist.map((t, idx) => (
               <button
                 key={t.id}
@@ -205,13 +232,18 @@ export default function MusicPlayerWidget() {
             )}
           </div>
 
-          {errorMessage && (
-            <div className="mt-2 text-xs text-red-400">{errorMessage}</div>
-          )}
-
-          {!canAutoplay && playing && enabled && (
-            <div className="mt-2 text-xs text-yellow-300">Браузер заблокировал автозапуск. Нажмите ▶️.</div>
-          )}
+          <div className="flex items-center justify-between gap-2">
+            <label className="text-xs text-gray-300 px-2 py-1 bg-gray-700 rounded cursor-pointer">
+              + Добавить треки (mp3)
+              <input type="file" accept="audio/mpeg" multiple className="hidden" onChange={onAddTracks} />
+            </label>
+            {errorMessage && (
+              <div className="text-xs text-red-400" title={errorMessage}>Ошибка воспроизведения</div>
+            )}
+            {!canAutoplay && playing && enabled && (
+              <div className="text-xs text-yellow-300">Нажмите ▶️ для запуска</div>
+            )}
+          </div>
         </div>
       )}
     </div>

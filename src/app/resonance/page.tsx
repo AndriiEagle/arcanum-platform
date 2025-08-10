@@ -2,28 +2,28 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { getResonanceEnabledClient } from '../../../lib/config/featureFlags'
+import { useCurrentUserId } from '../../../lib/stores/authStore'
 
 type SphereCode = 'S1'|'S2'|'S3'|'S4'|'S5'|'S6'|'S7'|'S8'|'S9'
 const CODES: SphereCode[] = ['S1','S2','S3','S4','S5','S6','S7','S8','S9']
 
 export default function ResonanceBoardPage() {
   const enabled = getResonanceEnabledClient()
+  const userId = useCurrentUserId()
   const [topTasks, setTopTasks] = useState<Array<{ id: string; score: number }>>([])
   const [weights, setWeights] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !userId) return
     const run = async () => {
       setLoading(true)
       try {
-        // Top tasks
-        const tt = await fetch('/api/tasks/top?n=5').then(r => r.json()).catch(() => ({ items: [] }))
-        const items = Array.isArray(tt) ? tt : (tt?.items || [])
+        const tt = await fetch(`/api/tasks/top?n=5&userId=${encodeURIComponent(userId)}`).then(r => r.json()).catch(() => ({ items: [] }))
+        const items = Array.isArray(tt?.items) ? tt.items : []
         setTopTasks(items)
-        // Weights
-        const wr = await fetch('/api/resonance/weights').then(r => r.json()).catch(() => ({ items: [] }))
+        const wr = await fetch(`/api/resonance/weights?userId=${encodeURIComponent(userId)}`).then(r => r.json()).catch(() => ({ items: [] }))
         const map: Record<string, number> = {}
         for (const it of wr?.items || []) {
           map[`${it.sphere_a}-${it.sphere_b}`] = Number(it.weight)
@@ -34,7 +34,7 @@ export default function ResonanceBoardPage() {
       }
     }
     run()
-  }, [enabled])
+  }, [enabled, userId])
 
   const grid = useMemo(() => {
     return CODES.map(a => CODES.map(b => ({ key: `${a}-${b}`, a, b, value: weights[`${a}-${b}`] ?? (a === b ? 1 : 0.2) })))
@@ -46,6 +46,7 @@ export default function ResonanceBoardPage() {
   }
 
   const onSave = async () => {
+    if (!userId) return
     setSaving(true)
     try {
       const payload = [] as Array<{ sphere_a: string; sphere_b: string; weight: number }>
@@ -54,7 +55,7 @@ export default function ResonanceBoardPage() {
         const w = typeof weights[key] === 'number' ? weights[key]! : 0.2
         payload.push({ sphere_a: a, sphere_b: b, weight: Math.max(0, Math.min(1, w)) })
       }
-      await fetch('/api/resonance/weights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: payload }) })
+      await fetch('/api/resonance/weights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, items: payload }) })
     } finally {
       setSaving(false)
     }

@@ -56,23 +56,32 @@ function detectCommandType(message: string): string {
 // Получение контекста пользователя из Supabase
 async function getUserContext(userId: string): Promise<string> {
   try {
-    // Здесь больше не поддерживаем anonymous
     const supabase = createClient()
     
-    // Загружаем статистики пользователя
     const { data: userStats } = await supabase
       .from('user_stats')
       .select('level, current_xp, next_level_xp, energy')
       .eq('user_id', userId)
       .single()
     
-    // Загружаем активные сферы
     const { data: spheres } = await supabase
       .from('life_spheres')
-      .select('sphere_name, health_percentage')
+      .select('sphere_name, sphere_code, health_percentage')
       .eq('user_id', userId)
       .eq('is_active', true)
-      
+
+    // New: operator & sphere profiles
+    const { data: op } = await supabase
+      .from('operator_profiles')
+      .select('version,last_update')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const { data: sprofiles } = await supabase
+      .from('sphere_profiles')
+      .select('sphere_code, meta, components, synergy')
+      .eq('user_id', userId)
+
     const contextData = userStats || {
       level: 1,
       current_xp: 0,
@@ -81,17 +90,29 @@ async function getUserContext(userId: string): Promise<string> {
     }
     
     const activeSpheres = (spheres && spheres.length > 0)
-      ? spheres.map((s: { sphere_name: string; health_percentage: number }) => `${s.sphere_name} (${s.health_percentage}%)`).join(', ')
-      : 'Здоровье (50%), Карьера (50%), Финансы (50%)'
-    
+      ? spheres.map((s: { sphere_name: string; sphere_code: string | null; health_percentage: number }) => `${s.sphere_code || s.sphere_name} (${s.health_percentage}%)`).join(', ')
+      : 'S1 (50%), S2 (50%), S3 (50%)'
+
+    const profilesSummary = (sprofiles || [])
+      .slice(0, 9)
+      .map((sp: any) => {
+        const title = sp.sphere_code
+        const keyGoals = sp.components?.financial_goals_and_deadlines?.primary_goal || sp.meta?.title || ''
+        return `${title}: ${keyGoals}`
+      })
+      .filter(Boolean)
+      .join('\n')
+
     const userContext = `
-    Пользователь ID: ${userId}
-    Уровень: ${contextData.level} (${contextData.current_xp?.toLocaleString()} / ${contextData.next_level_xp?.toLocaleString()} XP)
-    Энергия: ${contextData.energy}%
-    Активные сферы: ${activeSpheres}
-    `
+Пользователь ID: ${userId}
+Уровень: ${contextData.level} (${(contextData.current_xp || 0).toLocaleString()} / ${(contextData.next_level_xp || 0).toLocaleString()} XP)
+Энергия: ${contextData.energy}%
+Активные сферы: ${activeSpheres}
+Паспорт: версия ${op?.version || '—'}, дата ${op?.last_update || '—'}
+Ключи профилей сфер:\n${profilesSummary}
+    `.trim()
     
-    return userContext.trim()
+    return userContext
   } catch (error) {
     console.error('Error getting user context:', error)
     return ''
@@ -106,7 +127,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    // Требуем авторизацию (никаких anonymous)
     if (!userId || userId === 'anonymous') {
       return NextResponse.json({
         error: 'AUTH_REQUIRED',
@@ -132,10 +152,9 @@ export async function POST(request: NextRequest) {
       systemPrompt += `\n\nКОНТЕКСТ ПОЛЬЗОВАТЕЛЯ:\n${userContext}`
     }
 
-    // Проверяем токен-лимиты перед вызовом OpenAI API (монетизация)
     try {
       const userTokensUsed = await getUserTokenUsage(userId)
-      const isPremium = false // TODO: получать из user_stats или auth metadata
+      const isPremium = false
       const tokenLimit = isPremium ? 10000 : 1000
       
       if (userTokensUsed > tokenLimit) {
@@ -201,7 +220,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET метод для тестирования
 export async function GET() {
   return NextResponse.json({ 
     message: 'Arcanum Brain Chat API',

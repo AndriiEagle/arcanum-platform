@@ -57,6 +57,7 @@ export default function DraggableWidget({
         hover:shadow-xl
       `}
       onMouseDown={handleMouseDown}
+      onPointerDown={handleMouseDown}
       {...listeners}
       {...attributes}
     >

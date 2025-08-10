@@ -70,6 +70,12 @@ export default function WorkspaceCanvas() {
       type: 'GrowthWidget', 
       position: { x: 600, y: 500 },
       data: { title: '🌱 Growth Widget', content: 'Прогресс развития' }
+    },
+    {
+      id: 'music-player',
+      type: 'MusicPlayerWidget',
+      position: { x: 900, y: 80 },
+      data: {}
     }
   ])
 
@@ -272,6 +278,9 @@ export default function WorkspaceCanvas() {
       
       case 'StatsColumnWidget':
         return <StatsColumnWidget {...widget.data} />
+      case 'MusicPlayerWidget':
+        const MusicPlayerWidget = require('../widgets/MusicPlayerWidget').default
+        return <MusicPlayerWidget />
       
       default:
         return (
@@ -371,6 +380,7 @@ export default function WorkspaceCanvas() {
                   <div className="relative">
                     {/* Кнопка сворачивания/разворачивания */}
                     <button
+                      onPointerDown={(e)=>{ e.stopPropagation(); e.preventDefault() }}
                       onMouseDown={(e)=>{ e.stopPropagation(); e.preventDefault() }}
                       onClick={(e)=>{ e.stopPropagation(); toggleMinimized(widget.id) }}
                       className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gray-900 border border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800 shadow"
@@ -385,6 +395,8 @@ export default function WorkspaceCanvas() {
                         onClick={(e)=>{ e.stopPropagation(); toggleMinimized(widget.id) }}
                         className="draggable-widget pointer-events-auto bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 border border-gray-700 flex items-center space-x-2 text-sm text-white"
                         title="Развернуть"
+                        role="button"
+                        aria-label="Развернуть виджет"
                       >
                         <span className="text-lg">{getWidgetIcon(widget)}</span>
                         <span className="opacity-90">{getWidgetTitle(widget)}</span>
