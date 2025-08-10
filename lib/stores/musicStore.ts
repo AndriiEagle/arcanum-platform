@@ -37,11 +37,7 @@ interface MusicState {
   setLoop: (loop: boolean) => void
 }
 
-const DEFAULT_PLAYLIST: MusicTrack[] = [
-  { id: 't1', title: 'Трек 1', src: '/audio/track1.mp3' },
-  { id: 't2', title: 'Трек 2', src: '/audio/track2.mp3' },
-  { id: 't3', title: 'Трек 3', src: '/audio/track3.mp3' }
-]
+const DEFAULT_PLAYLIST: MusicTrack[] = []
 
 export const useMusicStore = create<MusicState>()(
   persist(
