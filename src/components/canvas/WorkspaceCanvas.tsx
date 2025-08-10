@@ -72,12 +72,6 @@ export default function WorkspaceCanvas() {
       type: 'GrowthWidget', 
       position: { x: 600, y: 500 },
       data: { title: '🌱 Growth Widget', content: 'Прогресс развития' }
-    },
-    {
-      id: 'music-player',
-      type: 'MusicPlayerWidget',
-      position: { x: 900, y: 80 },
-      data: {}
     }
   ])
 
@@ -208,7 +202,9 @@ export default function WorkspaceCanvas() {
       }
 
       if (data?.layout_config?.widgets) {
-        setWidgets(data.layout_config.widgets)
+        // Убираем MusicPlayerWidget из сохранённого макета — глобальный плеер рендерится в лейауте
+        const sanitized = (data.layout_config.widgets as Widget[]).filter(w => w.type !== 'MusicPlayerWidget')
+        setWidgets(sanitized)
       }
     } catch (error) {
       console.error('Error loading layout:', error)
@@ -337,9 +333,7 @@ export default function WorkspaceCanvas() {
       
       case 'StatsColumnWidget':
         return <StatsColumnWidget {...widget.data} />
-      case 'MusicPlayerWidget':
-        const MusicPlayerWidget = require('../widgets/MusicPlayerWidget').default
-        return <MusicPlayerWidget />
+      // Убрано: MusicPlayerWidget рендерится глобально из лейаута, чтобы не было дублей
       case 'ImageWidget':
         return <ImageWidget url={String(url || '')} title={titleStr} />
       

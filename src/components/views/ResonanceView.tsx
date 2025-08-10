@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
 import { getDisplayNameForCode, getIconForCode } from '../../../lib/core/life-spheres'
+import { uploadImageResized } from '../../../lib/services/imageUpload'
 
 interface Sphere {
   id: string
@@ -14,6 +15,8 @@ interface Sphere {
   icon: string
   isActive: boolean
   position: { x: number; y: number }
+  imageUrl?: string
+  code?: string
 }
 
 interface Connection {
@@ -56,7 +59,7 @@ export default function ResonanceView() {
       // Пытаемся загрузить реальные данные из Supabase
       const { data: userSpheres, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, sphere_code, health_percentage, is_active')
+        .select('id, sphere_name, sphere_code, health_percentage, is_active, category_mascot_url')
         .eq('user_id', userId)
         .eq('is_active', true)
 
@@ -83,7 +86,9 @@ export default function ResonanceView() {
             color: sphere.sphere_code ? getSphereColorByCode(sphere.sphere_code) : getSphereColor(sphere.sphere_name),
             icon: displayIcon,
             isActive: sphere.is_active,
-            position: { x, y }
+            position: { x, y },
+            imageUrl: sphere.category_mascot_url || undefined,
+            code: sphere.sphere_code || undefined
           }
         })
         
@@ -111,7 +116,9 @@ export default function ResonanceView() {
       color: getSphereColorByCode(code),
       icon: getIconForCode(code),
       isActive: true,
-      position: { x: 0, y: 0 }
+      position: { x: 0, y: 0 },
+      imageUrl: undefined,
+      code
     }))
     
     // Расчет позиций по кругу
@@ -201,6 +208,51 @@ export default function ResonanceView() {
   // Обработка клика по сфере
   const handleSphereClick = (sphereId: string) => {
     setSelectedSphere(sphereId === selectedSphere ? null : sphereId)
+  }
+
+  // Загрузка пользовательской иконки/изображения для сферы
+  const handleUploadIcon = async (sphere: Sphere) => {
+    try {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      await new Promise<void>((resolve) => {
+        input.onchange = () => resolve()
+        input.click()
+      })
+      const file = input.files?.[0]
+      if (!file) return
+      const { url } = await uploadImageResized(file, { bucket: 'public-assets', pathPrefix: `sphere-icons/${userId || 'anon'}`, maxSize: 256 })
+
+      // Пишем в БД, если пользователь авторизован и есть реальная запись сферы
+      if (userId && sphere.id) {
+        await supabase
+          .from('life_spheres')
+          .update({ category_mascot_url: url })
+          .eq('id', sphere.id)
+          .eq('user_id', userId)
+      }
+
+      // Локально обновляем
+      setSpheres(prev => prev.map(s => s.id === sphere.id ? { ...s, imageUrl: url } : s))
+    } catch (err) {
+      console.error('Upload icon failed', err)
+    }
+  }
+
+  const handleResetIcon = async (sphere: Sphere) => {
+    try {
+      if (userId && sphere.id) {
+        await supabase
+          .from('life_spheres')
+          .update({ category_mascot_url: null })
+          .eq('id', sphere.id)
+          .eq('user_id', userId)
+      }
+      setSpheres(prev => prev.map(s => s.id === sphere.id ? { ...s, imageUrl: undefined } : s))
+    } catch (err) {
+      console.error('Reset icon failed', err)
+    }
   }
 
   // Получение статистики резонанса
@@ -348,6 +400,7 @@ export default function ResonanceView() {
         {/* Сферы жизни */}
         {spheres.map((sphere) => (
           <g key={sphere.id}>
+            {/* База круга */}
             <circle
               cx={sphere.position.x}
               cy={sphere.position.y}
@@ -356,25 +409,44 @@ export default function ResonanceView() {
               fillOpacity={sphere.isActive ? 0.8 : 0.4}
               stroke={selectedSphere === sphere.id ? "#FFD700" : "white"}
               strokeWidth={selectedSphere === sphere.id ? "3" : "2"}
-              className="cursor-pointer transition-all duration-300 hover:scale-110"
+              className="cursor-pointer transition-all duration-300"
               onClick={() => handleSphereClick(sphere.id)}
             />
-            <text
-              x={sphere.position.x}
-              y={sphere.position.y + 40}
-              textAnchor="middle"
-              className="fill-white text-xs font-medium"
-            >
-              {sphere.icon} {sphere.name}
-            </text>
-            <text
-              x={sphere.position.x}
-              y={sphere.position.y + 55}
-              textAnchor="middle"
-              className="fill-gray-300 text-xs"
-            >
-              {sphere.health_percentage}%
-            </text>
+            {/* Кастомное изображение внутри круга (если задано) */}
+            {sphere.imageUrl && (
+              <>
+                <clipPath id={`clip-${sphere.id}`}>
+                  <circle cx={sphere.position.x} cy={sphere.position.y} r={sphere.isActive ? 23 : 13} />
+                </clipPath>
+                <image
+                  href={sphere.imageUrl}
+                  x={sphere.position.x - (sphere.isActive ? 23 : 13)}
+                  y={sphere.position.y - (sphere.isActive ? 23 : 13)}
+                  width={(sphere.isActive ? 46 : 26)}
+                  height={(sphere.isActive ? 46 : 26)}
+                  preserveAspectRatio="xMidYMid slice"
+                  clipPath={`url(#clip-${sphere.id})`}
+                />
+              </>
+            )}
+            {/* Подпись с фоном для читаемости */}
+            {(() => {
+              const label = `${sphere.icon} ${sphere.name}`
+              const width = Math.min(240, Math.max(96, label.length * 6))
+              const x = sphere.position.x - width / 2
+              const y = sphere.position.y + 34
+              return (
+                <g>
+                  <rect x={x - 6} y={y - 6} rx={8} ry={8} width={width + 12} height={34} fill="rgba(17,24,39,0.85)" stroke="rgba(75,85,99,0.8)" strokeWidth={1} />
+                  <text x={sphere.position.x} y={y + 8} textAnchor="middle" className="fill-white text-[11px] font-medium">
+                    {label}
+                  </text>
+                  <text x={sphere.position.x} y={y + 22} textAnchor="middle" className="fill-gray-300 text-[10px]">
+                    {sphere.health_percentage}%
+                  </text>
+                </g>
+              )
+            })()}
           </g>
         ))}
 
@@ -413,6 +485,14 @@ export default function ResonanceView() {
                     <span className={sphere.isActive ? "text-green-400" : "text-gray-400"}>
                       {sphere.isActive ? "Активная" : "Неактивная"}
                     </span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-700 mt-2">
+                    <div className="flex gap-2">
+                      <button onClick={() => handleUploadIcon(sphere)} className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs">🖼️ Загрузить иконку</button>
+                      {sphere.imageUrl && (
+                        <button onClick={() => handleResetIcon(sphere)} className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs">Сбросить</button>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
