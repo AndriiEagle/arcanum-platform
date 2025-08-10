@@ -11,6 +11,7 @@ import DraggableWidget from './DraggableWidget'
 import HeaderImageWidget from '../widgets/HeaderImageWidget'
 import StatsColumnWidget from '../widgets/StatsColumnWidget'
 import ImageWidget from '../widgets/ImageWidget'
+import { uploadImageResized } from '../../../lib/services/imageUpload'
 
 interface Widget {
   id: string
@@ -138,37 +139,44 @@ export default function WorkspaceCanvas() {
     }
     setWidgets(prev => {
       const updated = [...prev, newWidget]
-      // отложим сохранение макета на следующий тик, чтобы избежать зависимости
       setTimeout(() => debouncedSaveLayout(updated), 0)
       return updated
     })
   }, [])
 
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+  const handlePaste = useCallback(async (e: React.ClipboardEvent<HTMLDivElement>) => {
     const items = e.clipboardData?.items
     if (!items) return
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile()
         if (file) {
-          const url = URL.createObjectURL(file)
-          addImageWidget(url)
+          try {
+            const { url } = await uploadImageResized(file, { bucket: 'public-assets', pathPrefix: `screenshots/${userId || 'anon'}`, maxSize: 1920 })
+            addImageWidget(url)
+          } catch (err) {
+            console.error('Upload failed:', err)
+          }
           e.preventDefault()
           return
         }
       }
     }
-  }, [addImageWidget])
+  }, [addImageWidget, userId])
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback(async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     const files = Array.from(e.dataTransfer?.files || [])
     const img = files.find(f => f.type.startsWith('image/'))
     if (img) {
-      const url = URL.createObjectURL(img)
-      addImageWidget(url)
+      try {
+        const { url } = await uploadImageResized(img, { bucket: 'public-assets', pathPrefix: `screenshots/${userId || 'anon'}`, maxSize: 1920 })
+        addImageWidget(url)
+      } catch (err) {
+        console.error('Upload failed:', err)
+      }
     }
-  }, [addImageWidget])
+  }, [addImageWidget, userId])
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
