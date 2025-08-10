@@ -205,6 +205,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
         set({ user, isAuthenticated: true, isLoading: false, isInitialized: true })
       } else {
+        // Небольшой поллинг на случай гонки с /auth/callback
+        for (let i = 0; i < 5; i++) {
+          await new Promise(r => setTimeout(r, 250))
+          const { data: { session: s } } = await supabase.auth.getSession()
+          if (s?.user) {
+            const profile = await fetchUserProfile(s.user.id)
+            const user: User = {
+              id: s.user.id,
+              email: s.user.email!,
+              name: profile?.name || s.user.user_metadata?.name || 'Пользователь',
+              level: 1,
+              createdAt: s.user.created_at,
+              role: profile?.role || 'user',
+              permissions: profile?.permissions || {}
+            }
+            set({ user, isAuthenticated: true, isLoading: false, isInitialized: true })
+            return
+          }
+        }
         // DEV fallback: auto-admin if env flag is set
         if (typeof window !== 'undefined' && (window as any).NEXT_PUBLIC_DEV_ADMIN === '1' || process.env.NEXT_PUBLIC_DEV_ADMIN === '1') {
           const demoAdmin = createDemoUser('admin')
@@ -215,7 +234,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
           const profile = await fetchUserProfile(session.user.id)
           const user: User = {
             id: session.user.id,
