@@ -48,16 +48,16 @@ const generateUserId = () => {
 }
 
 // Создание demo пользователя
-const createDemoUser = (): User => {
+const createDemoUser = (role: 'admin' | 'user' = 'user'): User => {
   const userId = generateUserId()
   return {
     id: userId,
-    email: 'demo@arcanum.dev',
-    name: 'Arcanum Explorer',
+    email: `${role}@arcanum.dev` as string,
+    name: role === 'admin' ? 'Admin (Dev)' : 'Arcanum Explorer',
     level: 15,
     createdAt: new Date().toISOString(),
     avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
-    role: 'user'
+    role
   }
 }
 
@@ -95,47 +95,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       // Demo режим для разработки
       if (email === 'demo@arcanum.dev' && password === 'demo') {
-        const demoUser = createDemoUser()
-        set({ 
-          user: demoUser, 
-          isAuthenticated: true, 
-          isLoading: false 
-        })
+        const demoUser = createDemoUser('user')
+        set({ user: demoUser, isAuthenticated: true, isLoading: false })
         return { success: true }
       }
       
       // Реальная авторизация через Supabase
       const supabase = getSupabase()
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       
-      if (error) {
-        set({ isLoading: false })
-        return { success: false, error: error.message }
-      }
+      if (error) { set({ isLoading: false }); return { success: false, error: error.message } }
       
       if (data.user) {
-        // Получаем дополнительную информацию о пользователе
         const profile = await fetchUserProfile(data.user.id)
-        
         const user: User = {
           id: data.user.id,
           email: data.user.email!,
           name: profile?.name || data.user.user_metadata?.name || 'Пользователь',
-          level: 1, // Базовый уровень, можно получать из user_stats
+          level: 1,
           createdAt: data.user.created_at,
           role: profile?.role || 'user',
           permissions: profile?.permissions || {}
         }
-        
-        set({ 
-          user, 
-          isAuthenticated: true, 
-          isLoading: false 
-        })
-        
+        set({ user, isAuthenticated: true, isLoading: false })
         return { success: true }
       }
       
@@ -160,27 +142,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { 
-            name: name
-          }
-        }
+        options: { data: { name: name } }
       })
       
-      if (error) {
-        set({ isLoading: false })
-        return { success: false, error: error.message }
-      }
+      if (error) { set({ isLoading: false }); return { success: false, error: error.message } }
       
-      if (data.user) {
-        // После успешной регистрации пользователь получит email для подтверждения
-        // Профиль будет создан автоматически через trigger в базе данных
-        set({ isLoading: false })
-        return { 
-          success: true, 
-          error: 'Проверьте email для подтверждения регистрации' 
-        }
-      }
+      if (data.user) { set({ isLoading: false }); return { success: true, error: 'Проверьте email для подтверждения регистрации' } }
       
       set({ isLoading: false })
       return { success: false, error: 'Не удалось зарегистрировать пользователя' }
@@ -199,74 +166,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const supabase = getSupabase()
       await supabase.auth.signOut()
-      set({ 
-        user: null, 
-        isAuthenticated: false, 
-        isLoading: false 
-      })
+      set({ user: null, isAuthenticated: false, isLoading: false })
     } catch (error) {
       console.error('Logout error:', error)
-      // Все равно очищаем состояние локально
-      set({ 
-        user: null, 
-        isAuthenticated: false, 
-        isLoading: false 
-      })
+      set({ user: null, isAuthenticated: false, isLoading: false })
     }
   },
 
   // =================================================================
   // УТИЛИТЫ
   // =================================================================
-  updateUser: (updates: Partial<User>) => {
-    const { user } = get()
-    if (user) {
-      set({ 
-        user: { ...user, ...updates } 
-      })
-    }
-  },
-
-  getCurrentUserId: () => {
-    const { user } = get()
-    return user?.id || null
-  },
-
-  hasRole: (role: string) => {
-    const { user } = get()
-    if (!user) return false
-    if (user.role === 'admin') return true // Админы имеют доступ ко всему
-    return user.role === role
-  },
-
-  isAdmin: () => {
-    const { user } = get()
-    return user?.role === 'admin' || false
-  },
+  updateUser: (updates: Partial<User>) => { const { user } = get(); if (user) set({ user: { ...user, ...updates } }) },
+  getCurrentUserId: () => { const { user } = get(); return user?.id || null },
+  hasRole: (role: string) => { const { user } = get(); if (!user) return false; if (user.role === 'admin') return true; return user.role === role },
+  isAdmin: () => { const { user } = get(); return user?.role === 'admin' || false },
 
   // =================================================================
   // ИНИЦИАЛИЗАЦИЯ СЕССИИ
   // =================================================================
   initialize: async () => {
     if (get().isInitialized) return
-    
     set({ isLoading: true })
-    
     try {
-      // Проверяем текущую сессию
       const supabase = getSupabase()
       const { data: { session }, error } = await supabase.auth.getSession()
-      
-      if (error) {
-        console.error('Session error:', error)
-        set({ isLoading: false, isInitialized: true })
-        return
-      }
-      
+      if (error) { console.error('Session error:', error) }
+
       if (session?.user) {
-        // Получаем профиль пользователя
         const profile = await fetchUserProfile(session.user.id)
-        
         const user: User = {
           id: session.user.id,
           email: session.user.email!,
@@ -276,27 +203,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: profile?.role || 'user',
           permissions: profile?.permissions || {}
         }
-        
-        set({ 
-          user, 
-          isAuthenticated: true, 
-          isLoading: false,
-          isInitialized: true
-        })
+        set({ user, isAuthenticated: true, isLoading: false, isInitialized: true })
       } else {
-        set({ 
-          user: null, 
-          isAuthenticated: false, 
-          isLoading: false,
-          isInitialized: true
-        })
+        // DEV fallback: auto-admin if env flag is set
+        if (typeof window !== 'undefined' && (window as any).NEXT_PUBLIC_DEV_ADMIN === '1' || process.env.NEXT_PUBLIC_DEV_ADMIN === '1') {
+          const demoAdmin = createDemoUser('admin')
+          set({ user: demoAdmin, isAuthenticated: true, isLoading: false, isInitialized: true })
+        } else {
+          set({ user: null, isAuthenticated: false, isLoading: false, isInitialized: true })
+        }
       }
-      
-      // Подписываемся на изменения состояния авторизации
+
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
           const profile = await fetchUserProfile(session.user.id)
-          
           const user: User = {
             id: session.user.id,
             email: session.user.email!,
@@ -306,42 +226,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             role: profile?.role || 'user',
             permissions: profile?.permissions || {}
           }
-          
-          set({ 
-            user, 
-            isAuthenticated: true, 
-            isLoading: false 
-          })
+          set({ user, isAuthenticated: true, isLoading: false })
         } else if (event === 'SIGNED_OUT') {
-          set({ 
-            user: null, 
-            isAuthenticated: false, 
-            isLoading: false 
-          })
+          set({ user: null, isAuthenticated: false, isLoading: false })
         }
       })
-      // Note: subscription cleanup can be handled by caller if needed
       void sub
-      
+
     } catch (error) {
       console.error('Initialize error:', error)
-      set({ 
-        isLoading: false,
-        isInitialized: true
-      })
+      set({ isLoading: false, isInitialized: true })
     }
   },
 
   // =================================================================
   // DEMO РЕЖИМ (для разработки)
   // =================================================================
-  generateDemoUser: () => {
-    const demoUser = createDemoUser()
-    set({ 
-      user: demoUser, 
-      isAuthenticated: true 
-    })
-  }
+  generateDemoUser: () => { const demoUser = createDemoUser('user'); set({ user: demoUser, isAuthenticated: true }) }
 }))
 
 // =================================================================
@@ -349,38 +250,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 // =================================================================
 
 // Хук для получения текущего user ID
-export const useCurrentUserId = () => {
-  const getCurrentUserId = useAuthStore(state => state.getCurrentUserId)
-  return getCurrentUserId()
-}
+export const useCurrentUserId = () => { const getCurrentUserId = useAuthStore(state => state.getCurrentUserId); return getCurrentUserId() }
 
 // Основной хук авторизации
 export const useAuth = () => {
-  const { 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    isInitialized,
-    login, 
-    logout, 
-    register, 
-    hasRole,
-    isAdmin,
-    initialize
-  } = useAuthStore()
+  const { user, isAuthenticated, isLoading, isInitialized, login, logout, register, hasRole, isAdmin, initialize } = useAuthStore()
   
-  return { 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    isInitialized,
-    login, 
-    logout, 
-    register,
-    hasRole,
-    isAdmin,
-    initialize
-  }
+  return { user, isAuthenticated, isLoading, isInitialized, login, logout, register, hasRole, isAdmin, initialize }
 }
 
 // Хук для проверки ролей
@@ -389,9 +265,5 @@ export const useRole = () => {
   const isAdmin = useAuthStore(state => state.isAdmin)
   const user = useAuthStore(state => state.user)
   
-  return {
-    hasRole,
-    isAdmin,
-    currentRole: user?.role || null
-  }
+  return { hasRole, isAdmin, currentRole: user?.role || null }
 } 
