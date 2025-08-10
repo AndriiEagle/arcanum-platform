@@ -71,6 +71,7 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
               </button>
             </div>
             
+            {/* ЕДИНСТВЕННЫЙ селектор модели (в хедере) */}
             <div className="border-l border-gray-600 pl-4">
               <ModelSelector />
             </div>
@@ -92,8 +93,7 @@ export default function MainContentArea({ children }: MainContentAreaProps) {
       
       {/* Основная рабочая область с переключением режимов */}
       <div className="h-[calc(100vh-4rem)] relative">
-        {/* Глобальная панель селектора моделей рендерится один раз */}
-        <ModelSelector renderPanel={true} />
+        {/* Панель селектора НЕ дублируем — управляется компонентом в хедере */}
         {activeView === 'dashboard' ? (
           <DashboardView />
         ) : (
