@@ -20,6 +20,16 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [initialize])
 
+  // Watchdog: если по какой-то причине загрузка зависла, сбросить через таймаут
+  useEffect(() => {
+    if (!isInitialized && isLoading) {
+      const t = setTimeout(() => {
+        try { console.warn('[AuthProvider] init watchdog fired') } catch {}
+      }, 5000)
+      return () => clearTimeout(t)
+    }
+  }, [isInitialized, isLoading])
+
   // Отмечаем, что клиентская гидратация завершена
   useEffect(() => {
     setHydrated(true)

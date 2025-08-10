@@ -13,6 +13,7 @@ export default function AuthConfirmPage() {
 
     const process = async () => {
       try {
+        console.log('[AuthConfirm] mounted')
         const url = new URL(window.location.href)
         const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash
         const hashParams = new URLSearchParams(hash)
@@ -20,13 +21,19 @@ export default function AuthConfirmPage() {
         const code = search.get('code') || hashParams.get('code')
         const access_token = search.get('access_token') || hashParams.get('access_token')
         const refresh_token = search.get('refresh_token') || hashParams.get('refresh_token')
+        const type = search.get('type') || hashParams.get('type')
+        const error_description = search.get('error_description') || hashParams.get('error_description')
+
+        if (error_description) console.warn('[AuthConfirm] error_description:', error_description)
 
         if (code) {
-          await supabase.auth.exchangeCodeForSession(code)
-          console.log('[AuthConfirm] exchangeCodeForSession OK')
+          const { error } = await supabase.auth.exchangeCodeForSession(code)
+          if (error) console.error('[AuthConfirm] exchangeCodeForSession error', error)
+          else console.log('[AuthConfirm] exchangeCodeForSession OK')
         } else if (access_token && refresh_token) {
-          await supabase.auth.setSession({ access_token, refresh_token })
-          console.log('[AuthConfirm] setSession OK')
+          const { error } = await supabase.auth.setSession({ access_token, refresh_token })
+          if (error) console.error('[AuthConfirm] setSession error', error)
+          else console.log('[AuthConfirm] setSession OK, type:', type)
         } else {
           console.log('[AuthConfirm] No auth params found')
         }
@@ -34,10 +41,11 @@ export default function AuthConfirmPage() {
         console.error('[AuthConfirm] processing error', err)
       } finally {
         try {
-          const clean = '/' // на главную
+          const clean = '/auth/confirm'
           window.history.replaceState({}, '', clean)
         } catch {}
-        router.replace('/')
+        try { router.replace('/') } catch {}
+        setTimeout(() => { try { window.location.replace('/') } catch {} }, 300)
       }
     }
 
