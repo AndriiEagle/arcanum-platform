@@ -10,6 +10,7 @@ import { useUIStore } from '../../../lib/stores/uiStore'
 import DraggableWidget from './DraggableWidget'
 import HeaderImageWidget from '../widgets/HeaderImageWidget'
 import StatsColumnWidget from '../widgets/StatsColumnWidget'
+import ImageWidget from '../widgets/ImageWidget'
 
 interface Widget {
   id: string
@@ -107,6 +108,7 @@ export default function WorkspaceCanvas() {
       case 'GrowthWidget': return '🌱'
       case 'HeaderImageWidget': return '🖼️'
       case 'StatsColumnWidget': return '📊'
+      case 'ImageWidget': return '🖼️'
       default: return '📦'
     }
   }
@@ -120,9 +122,58 @@ export default function WorkspaceCanvas() {
       case 'GrowthWidget': return 'Growth'
       case 'HeaderImageWidget': return 'Header'
       case 'StatsColumnWidget': return 'Командный Центр'
+      case 'ImageWidget': return 'Снимок'
       default: return 'Widget'
     }
   }
+
+  // Пасте/дроп картинок → создаём ImageWidget
+  const addImageWidget = useCallback((url: string) => {
+    const id = `img_${Date.now()}`
+    const newWidget: Widget = {
+      id,
+      type: 'ImageWidget',
+      position: { x: 400, y: 120 },
+      data: { url, title: 'Скриншот' }
+    }
+    setWidgets(prev => {
+      const updated = [...prev, newWidget]
+      // отложим сохранение макета на следующий тик, чтобы избежать зависимости
+      setTimeout(() => debouncedSaveLayout(updated), 0)
+      return updated
+    })
+  }, [])
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) {
+          const url = URL.createObjectURL(file)
+          addImageWidget(url)
+          e.preventDefault()
+          return
+        }
+      }
+    }
+  }, [addImageWidget])
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    const files = Array.from(e.dataTransfer?.files || [])
+    const img = files.find(f => f.type.startsWith('image/'))
+    if (img) {
+      const url = URL.createObjectURL(img)
+      addImageWidget(url)
+    }
+  }, [addImageWidget])
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    e.preventDefault()
+  }, [])
 
   // Функция загрузки макета из Supabase
   const loadLayout = useCallback(async () => {
@@ -229,7 +280,7 @@ export default function WorkspaceCanvas() {
 
   // Рендеринг виджета по типу
   const renderWidgetContent = (widget: Widget) => {
-    const { title, content } = widget.data || {}
+    const { title, content, url } = widget.data || {}
     const titleStr = typeof title === 'string' ? title : 'Unknown Title'
     const contentStr = typeof content === 'string' ? content : 'No content'
     
@@ -281,6 +332,8 @@ export default function WorkspaceCanvas() {
       case 'MusicPlayerWidget':
         const MusicPlayerWidget = require('../widgets/MusicPlayerWidget').default
         return <MusicPlayerWidget />
+      case 'ImageWidget':
+        return <ImageWidget url={String(url || '')} title={titleStr} />
       
       default:
         return (
@@ -293,7 +346,11 @@ export default function WorkspaceCanvas() {
   }
 
   return (
-    <div className="w-full h-full bg-gray-900 relative overflow-hidden">
+    <div className="w-full h-full bg-gray-900 relative overflow-hidden"
+         onPaste={handlePaste}
+         onDrop={handleDrop}
+         onDragOver={handleDragOver}
+    >
       {/* Индикатор загрузки */}
       {isLoading && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-600/90 backdrop-blur-sm rounded-lg px-4 py-2 border border-blue-500 shadow-xl">
@@ -457,6 +514,10 @@ export default function WorkspaceCanvas() {
             <div className="flex items-start space-x-2">
               <span>📌</span>
               <span className="text-blue-400">Позиция сохраняется автоматически</span>
+            </div>
+            <div className="flex items-start space-x-2">
+              <span>📋</span>
+              <span className="text-emerald-400">Вставка скриншотов: Ctrl+V, или перетащи файл/картинку</span>
             </div>
           </div>
         </div>
