@@ -85,10 +85,9 @@ export default function SidePanel({ position }: SidePanelProps) {
     try {
       const { data, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, health_percentage, sphere_code')
+        .select('id, sphere_name, health_percentage')
         .eq('user_id', userId)
-        .order('sphere_name')
-      
+        
       if (error) {
         console.error('Error loading spheres:', error)
         // Создаем базовые сферы для нового пользователя
@@ -103,9 +102,9 @@ export default function SidePanel({ position }: SidePanelProps) {
         const { getDisplayNameForCode, getIconForCode } = await import('../../../lib/core/life-spheres')
         const mappedSpheres = data.map((sphere: { id: string; sphere_name: string; sphere_code?: string; health_percentage: number }) => ({
           id: sphere.id,
-          name: sphere.sphere_code ? getDisplayNameForCode(sphere.sphere_code) : sphere.sphere_name,
+          name: sphere.sphere_name,
           health_percentage: sphere.health_percentage,
-          icon: sphere.sphere_code ? getIconForCode(sphere.sphere_code) : getSphereIcon(sphere.sphere_name)
+          icon: getSphereIcon(sphere.sphere_name)
         }))
         setSpheres(mappedSpheres)
       } else {
