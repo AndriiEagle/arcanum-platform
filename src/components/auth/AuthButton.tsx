@@ -2,11 +2,18 @@
 
 import { useState } from 'react'
 import { useAuth } from '../../../lib/stores/authStore'
+import { createClient } from '../../../lib/supabase/client'
 
 type AuthMode = 'login' | 'register' | null
 
 export default function AuthButton() {
   const { user, isAuthenticated, isLoading, login, logout, register } = useAuth()
+  const [showChangePwd, setShowChangePwd] = useState(false)
+  const [pwd1, setPwd1] = useState('')
+  const [pwd2, setPwd2] = useState('')
+  const [pwdSaving, setPwdSaving] = useState(false)
+  const [pwdError, setPwdError] = useState('')
+
   const [authMode, setAuthMode] = useState<AuthMode>(null)
   const [formData, setFormData] = useState({
     email: 'demo@arcanum.dev',
@@ -15,6 +22,22 @@ export default function AuthButton() {
   })
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleChangePassword = async () => {
+    setPwdError('')
+    if (pwd1.length < 8) { setPwdError('Минимум 8 символов'); return }
+    if (pwd1 !== pwd2) { setPwdError('Пароли не совпадают'); return }
+    try {
+      setPwdSaving(true)
+      const supabase = createClient()
+      const { error } = await supabase.auth.updateUser({ password: pwd1 })
+      if (error) { setPwdError(error.message); return }
+      setShowChangePwd(false)
+      setPwd1(''); setPwd2('')
+    } finally {
+      setPwdSaving(false)
+    }
+  }
 
   const handleAuth = async () => {
     if (!authMode) return
@@ -111,12 +134,45 @@ export default function AuthButton() {
           </div>
         </div>
         <button
+          onClick={() => setShowChangePwd(true)}
+          className="text-xs text-gray-300 hover:text-white bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded transition-colors"
+          title="Сменить пароль"
+        >
+          Сменить пароль
+        </button>
+        <button
           onClick={handleLogout}
           className="text-xs text-gray-400 hover:text-white transition-colors"
           title="Выйти"
         >
           Выход
         </button>
+
+        {showChangePwd && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={()=>setShowChangePwd(false)}>
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 w-full max-w-sm mx-4" onClick={(e)=>e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-white font-medium">Сменить пароль</h3>
+                <button onClick={()=>setShowChangePwd(false)} className="text-gray-400 hover:text-white">✕</button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Новый пароль</label>
+                  <input type="password" value={pwd1} onChange={(e)=>setPwd1(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500" placeholder="Минимум 8 символов" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Повторите пароль</label>
+                  <input type="password" value={pwd2} onChange={(e)=>setPwd2(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500" />
+                </div>
+                {pwdError && <div className="bg-red-900/50 border border-red-700 rounded p-2 text-xs text-red-300">{pwdError}</div>}
+                <div className="flex items-center justify-end space-x-2">
+                  <button onClick={()=>setShowChangePwd(false)} className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded">Отмена</button>
+                  <button onClick={handleChangePassword} disabled={pwdSaving} className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded">{pwdSaving ? 'Сохранение...' : 'Сохранить'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
