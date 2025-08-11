@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '../../../lib/supabase/client'
 import SettingsModal from '../modals/SettingsModal'
 import ScheduleEventModal from '../modals/ScheduleEventModal'
+import React from 'react'
 
 interface SidePanelProps {
   position: 'left' | 'right';
@@ -42,6 +43,16 @@ export default function SidePanel({ position }: SidePanelProps) {
   } = useUIStore()
   
   const userId = useCurrentUserId()
+  const [seeding, setSeeding] = React.useState(false)
+  const seed = async () => {
+    if (!userId) return
+    try {
+      setSeeding(true)
+      await fetch('/api/spheres/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) })
+    } finally {
+      setSeeding(false)
+    }
+  }
   console.log('[DBG][SidePanel] render', { position, isLeftPanelOpen, isRightPanelOpen, userId })
   const [spheres, setSpheres] = useState<Sphere[]>([])
   const [isLoadingSpheres, setIsLoadingSpheres] = useState(false)
@@ -284,7 +295,10 @@ export default function SidePanel({ position }: SidePanelProps) {
             
             {/* Сферы жизни */}
             <div className="flex-1 mb-6">
-              <h3 className="text-sm font-medium text-gray-400 mb-2">Сферы жизни</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-400">Сферы жизни</h3>
+                <button onClick={seed} disabled={!userId || seeding} className="text-xs px-2 py-1 rounded bg-purple-600 hover:bg-purple-500 disabled:opacity-50">Seed</button>
+              </div>
               {isLoadingSpheres ? (
                 <div className="flex items-center justify-center py-4">
                   <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
