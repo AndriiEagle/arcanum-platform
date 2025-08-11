@@ -49,6 +49,7 @@ export default function SidePanel({ position }: SidePanelProps) {
     try {
       setSeeding(true)
       await fetch('/api/spheres/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) })
+      await loadUserSpheres()
     } finally {
       setSeeding(false)
     }
@@ -84,7 +85,7 @@ export default function SidePanel({ position }: SidePanelProps) {
     try {
       const { data, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, sphere_code, health_percentage')
+        .select('id, sphere_name, health_percentage, sphere_code')
         .eq('user_id', userId)
         .order('sphere_name')
       
