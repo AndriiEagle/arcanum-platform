@@ -114,29 +114,43 @@ export default function SidePanel({ position }: SidePanelProps) {
       if (error) {
         console.error('Error loading spheres:', error)
         // Создаем базовые сферы для нового пользователя
-        setSpheres([
-          { id: '1', name: 'Здоровье', health_percentage: 78, icon: '💪' },
-          { id: '2', name: 'Карьера', health_percentage: 92, icon: '💼' },
-          { id: '3', name: 'Финансы', health_percentage: 88, icon: '💰' },
-          { id: '4', name: 'Отношения', health_percentage: 65, icon: '❤️' },
-          { id: '5', name: 'Саморазвитие', health_percentage: 73, icon: '📚' }
-        ])
+        const life = await import('../../../lib/core/life-spheres')
+        const list = (Object.keys(life.SPHERE_CODE_TO_NAME) as Array<keyof typeof life.SPHERE_CODE_TO_NAME>).map((code)=>({
+          id: `placeholder_${code}`,
+          name: life.SPHERE_CODE_TO_NAME[code],
+          health_percentage: 50,
+          icon: life.SPHERE_CODE_TO_ICON[code]
+        }))
+        setSpheres(list)
       } else if (data && data.length > 0) {
         const { getDisplayNameForCode, getIconForCode } = await import('../../../lib/core/life-spheres')
-        const mappedSpheres = data.map((sphere: { id: string; sphere_name: string; sphere_code?: string; health_percentage: number }) => ({
+        const mapped = data.map((sphere: { id: string; sphere_name: string; sphere_code?: string; health_percentage: number }) => ({
           id: sphere.id,
-          name: sphere.sphere_name,
-          health_percentage: sphere.health_percentage,
-          icon: getSphereIcon(sphere.sphere_name)
+          name: sphere.sphere_code ? getDisplayNameForCode(sphere.sphere_code) : sphere.sphere_name,
+          health_percentage: sphere.health_percentage ?? 50,
+          icon: sphere.sphere_code ? getIconForCode(sphere.sphere_code) : getSphereIcon(sphere.sphere_name)
         }))
-        setSpheres(mappedSpheres)
+        // если пришло <9, добьём до 9 плейсхолдерами для визуальной полноты
+        const codes = ['S1','S2','S3','S4','S5','S6','S7','S8','S9'] as const
+        const byCode = new Map<string, any>(mapped.map((m:any)=>[m.name, m]))
+        const fullList: any[] = []
+        for (const code of codes) {
+          const name = getDisplayNameForCode(code)
+          const item = mapped.find((m:any)=>m.name===name)
+          if (item) fullList.push(item)
+          else fullList.push({ id: `placeholder_${code}`, name, health_percentage: 50, icon: getIconForCode(code) })
+        }
+        setSpheres(fullList)
       } else {
         // Создаем базовые сферы для нового пользователя
-        setSpheres([
-          { id: '1', name: 'Здоровье', health_percentage: 50, icon: '💪' },
-          { id: '2', name: 'Карьера', health_percentage: 50, icon: '💼' },
-          { id: '3', name: 'Финансы', health_percentage: 50, icon: '💰' }
-        ])
+        const life = await import('../../../lib/core/life-spheres')
+        const list = (Object.keys(life.SPHERE_CODE_TO_NAME) as Array<keyof typeof life.SPHERE_CODE_TO_NAME>).map((code)=>({
+          id: `placeholder_${code}`,
+          name: life.SPHERE_CODE_TO_NAME[code],
+          health_percentage: 50,
+          icon: life.SPHERE_CODE_TO_ICON[code]
+        }))
+        setSpheres(list)
       }
     } catch (error) {
       console.error('Error in loadUserSpheres:', error)
