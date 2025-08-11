@@ -119,8 +119,18 @@ export const useMusicStore = create<MusicState>()(
         shuffle: state.shuffle,
         loop: state.loop,
         currentTrackIndex: state.currentTrackIndex,
-        playlist: state.playlist
-      })
+        // сохраняем только устойчивые URL (не blob:)
+        playlist: (state.playlist || []).filter(t => typeof t.src === 'string' && !t.src.startsWith('blob:'))
+      }),
+      onRehydrateStorage: () => (state, error) => {
+        // На всякий случай очищаем blob-ссылки после гидратации
+        if (!state) return
+        const clean = (state.playlist || []).filter(t => typeof t.src === 'string' && !t.src.startsWith('blob:'))
+        if (clean.length !== (state.playlist || []).length) {
+          // Используем глобальный setter из useMusicStore напрямую
+          useMusicStore.setState({ playlist: clean, currentTrackIndex: 0 })
+        }
+      }
     }
   )
 )

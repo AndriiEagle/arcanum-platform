@@ -53,7 +53,10 @@ export default function MusicPlayerWidget() {
   useEffect(() => {
     const audio = audioRef.current; if (!audio) return
     if (!currentTrack) { setPlaying(false); return }
-    setErrorMessage(null); audio.src = currentTrack.src; audio.currentTime = 0
+    const src = currentTrack.src
+    // Игнорируем устаревшие blob: ссылки (они не переживают перезагрузку)
+    if (!src || src.startsWith('blob:')) { setPlaying(false); return }
+    setErrorMessage(null); audio.src = src; audio.currentTime = 0
     if (enabled && playing) { void audio.play().then(()=>setCanAutoplay(true)).catch(()=>setCanAutoplay(false)) }
   }, [currentTrack?.src])
 

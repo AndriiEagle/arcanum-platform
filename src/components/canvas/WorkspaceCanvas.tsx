@@ -11,6 +11,7 @@ import DraggableWidget from './DraggableWidget'
 import HeaderImageWidget from '../widgets/HeaderImageWidget'
 import StatsColumnWidget from '../widgets/StatsColumnWidget'
 import ImageWidget from '../widgets/ImageWidget'
+import InventoryWidget from '../widgets/InventoryWidget'
 import { uploadImageResized } from '../../../lib/services/imageUpload'
 
 interface Widget {
@@ -309,6 +310,40 @@ export default function WorkspaceCanvas() {
     loadLayout()
   }, [loadLayout])
 
+  // Глобальный обработчик открытия нужного виджета из боковой панели
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { type?: string }
+      const type = detail?.type
+      if (!type) return
+      setWidgets(prev => {
+        const existingIndex = prev.findIndex(w => w.type === type)
+        if (existingIndex >= 0) {
+          // Поднять существующий виджет наверх (визуально спереди)
+          const updated = [...prev]
+          const [found] = updated.splice(existingIndex, 1)
+          updated.push(found)
+          setTimeout(() => debouncedSaveLayout(updated), 0)
+          return updated
+        }
+        const id = `w_${Date.now()}`
+        const newWidget: Widget = {
+          id,
+          type,
+          position: { x: 320, y: 220 },
+          data: {}
+        }
+        const updated = [...prev, newWidget]
+        setTimeout(() => debouncedSaveLayout(updated), 0)
+        return updated
+      })
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('OPEN_WIDGET', handler as EventListener)
+      return () => window.removeEventListener('OPEN_WIDGET', handler as EventListener)
+    }
+  }, [debouncedSaveLayout])
+
   // Рендеринг виджета по типу
   const renderWidgetContent = (widget: Widget) => {
     const { title, content, url } = widget.data || {}
@@ -363,6 +398,8 @@ export default function WorkspaceCanvas() {
       // Убрано: MusicPlayerWidget рендерится глобально из лейаута, чтобы не было дублей
       case 'ImageWidget':
         return <ImageWidget url={String(url || '')} title={titleStr} />
+      case 'InventoryWidget':
+        return <InventoryWidget />
       
       default:
         return (

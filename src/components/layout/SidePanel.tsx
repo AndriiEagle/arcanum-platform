@@ -39,7 +39,9 @@ export default function SidePanel({ position }: SidePanelProps) {
     isLeftPanelOpen, 
     isRightPanelOpen, 
     toggleLeftPanel, 
-    toggleRightPanel 
+    toggleRightPanel,
+    setLeftPanel,
+    setActiveView
   } = useUIStore()
   
   const userId = useCurrentUserId()
@@ -48,7 +50,28 @@ export default function SidePanel({ position }: SidePanelProps) {
     if (!userId) return
     try {
       setSeeding(true)
-      await fetch('/api/spheres/seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId }) })
+      setIsLoadingSpheres(true)
+      // Таймаут на случай подвисания сетевого вызова
+      const controller = new AbortController()
+      const t = setTimeout(() => controller.abort(), 12000)
+      const res = await fetch('/api/spheres/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+        signal: controller.signal
+      })
+      clearTimeout(t)
+      let payload: any = null
+      try { payload = await res.json() } catch {}
+      if (!res.ok) {
+        console.error('[SidePanel][seed] server error', res.status, payload)
+        throw new Error(payload?.error || `Seed failed with status ${res.status}`)
+      }
+      console.log('[SidePanel][seed] ok', payload)
+      await loadUserSpheres()
+    } catch (e) {
+      console.error('[SidePanel][seed] failed', e)
+      // Даже при ошибке/таймауте — пробуем перечитать сферы
       await loadUserSpheres()
     } finally {
       setSeeding(false)
@@ -162,19 +185,34 @@ export default function SidePanel({ position }: SidePanelProps) {
     return iconMap[sphereName] || '⭐'
   }
 
+  const openWidget = (type: string) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('OPEN_WIDGET', { detail: { type } }))
+    }
+  }
+
   const handleButtonAction = (action: string) => {
     console.log(`Executing action: ${action}`)
     // Здесь будет логика выполнения действий кнопок
     switch (action) {
-      case 'open_quests':
-        // Открыть панель квестов
+      case 'open_quests': {
+        setActiveView('dashboard')
+        setLeftPanel(true)
+        openWidget('QuestWidget')
         break
-      case 'show_stats':
-        // Показать детальную статистику
+      }
+      case 'show_stats': {
+        setActiveView('dashboard')
+        setLeftPanel(true)
+        openWidget('StatsWidget')
         break
-      case 'open_inventory':
-        // Открыть инвентарь
+      }
+      case 'open_inventory': {
+        setActiveView('dashboard')
+        setLeftPanel(true)
+        openWidget('InventoryWidget')
         break
+      }
       default:
         console.log('Unknown action:', action)
     }
