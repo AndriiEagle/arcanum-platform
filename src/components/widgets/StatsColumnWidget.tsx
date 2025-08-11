@@ -156,6 +156,24 @@ export default function StatsColumnWidget() {
     setIsTreeModalOpen(true)
   }
 
+  // Подписка на внешнее событие открытия дерева конкретной сферы
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { sphereId?: string, sphereName?: string }
+      if (!detail?.sphereId && !detail?.sphereName) return
+      // находим сферу по id или имени
+      const found = spheres.find(s => (detail.sphereId && s.id === detail.sphereId) || (detail.sphereName && s.name === detail.sphereName))
+      if (found) {
+        setSelectedSphereForTree(found)
+        setIsTreeModalOpen(true)
+      }
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('OPEN_SPHERE_TREE', handler as EventListener)
+      return () => window.removeEventListener('OPEN_SPHERE_TREE', handler as EventListener)
+    }
+  }, [spheres])
+
   // Создание новой сферы через Supabase и открытие дерева
   const handleCreateSphere = async () => {
     if (!userId) {

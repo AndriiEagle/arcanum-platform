@@ -191,6 +191,16 @@ export default function SidePanel({ position }: SidePanelProps) {
     }
   }
 
+  const handleSphereItemClick = (sphere: Sphere) => {
+    // Откроем центральный вид с виджетом статистики и покажем дерево развития нужной сферы
+    setActiveView('dashboard')
+    setLeftPanel(true)
+    openWidget('StatsColumnWidget')
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('OPEN_SPHERE_TREE', { detail: { sphereId: sphere.id, sphereName: sphere.name } }))
+    }
+  }
+
   const handleButtonAction = (action: string) => {
     console.log(`Executing action: ${action}`)
     // Здесь будет логика выполнения действий кнопок
@@ -344,7 +354,7 @@ export default function SidePanel({ position }: SidePanelProps) {
               ) : (
                 <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                   {spheres.map((sphere) => (
-                    <div key={sphere.id} className="flex items-center space-x-2 p-2 bg-gray-750 rounded hover:bg-gray-700 transition-colors cursor-pointer">
+                    <div key={sphere.id} className="flex items-center space-x-2 p-2 bg-gray-750 rounded hover:bg-gray-700 transition-colors cursor-pointer" onClick={() => handleSphereItemClick(sphere)}>
                       <span className="text-lg">{sphere.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm text-white truncate">{sphere.name}</div>
