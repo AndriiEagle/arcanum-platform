@@ -81,11 +81,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
       // Пытаемся загрузить категории из БД
       const { data: dbCategories, error } = await supabase
         .from('sphere_categories')
-        .select(`
-          *,
-          tasks:sphere_tasks(*)
-        `)
-        .eq('user_id', userId)
+        .select('*')
         .eq('sphere_id', sphere.id)
 
       if (error) {
@@ -93,21 +89,14 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
         // Fallback на предустановленные категории
         loadFallbackCategories()
       } else if (dbCategories && dbCategories.length > 0) {
-        // Преобразуем данные из БД
+        // Преобразуем данные из БД (без join по задачам)
         const mappedCategories = dbCategories.map((cat: any) => ({
           id: cat.id,
           name: cat.category_name,
           progress: cat.progress || 0,
-          total_tasks: cat.tasks?.length || 0,
-          completed_tasks: cat.tasks?.filter((t: any) => t.is_completed).length || 0,
-          tasks: (cat.tasks || []).map((t:any)=>({
-            id: t.id,
-            name: t.task_name,
-            xp_reward: t.xp_reward,
-            priority: t.priority,
-            is_completed: t.is_completed,
-            category_id: t.category_id
-          })),
+          total_tasks: 0,
+          completed_tasks: 0,
+          tasks: [],
           mascot_url: cat.mascot_url
         }))
         setCategories(mappedCategories)
