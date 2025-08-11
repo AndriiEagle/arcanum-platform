@@ -23,9 +23,9 @@ export async function POST(req: NextRequest) {
     if (rpc.error) {
       // Fallback: insert 3 basic active spheres
       const basic = [
-        { sphere_name: 'S1 — Vitality (Тело/Реактор)', health_percentage: 50 },
-        { sphere_name: 'S2 — Mind/Code (Разум/Код)', health_percentage: 50 },
-        { sphere_name: 'S3 — Habitat (Среда/Кокон)', health_percentage: 50 },
+        { sphere_name: 'Здоровье', health_percentage: 78 },
+        { sphere_name: 'Карьера', health_percentage: 92 },
+        { sphere_name: 'Финансы', health_percentage: 88 },
       ]
       const payload = basic.map(b => ({ user_id: userId, is_active: true, ...b }))
       const { error: insErr } = await supabase.from('life_spheres').insert(payload)
