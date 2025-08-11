@@ -59,7 +59,7 @@ export default function ResonanceView() {
       // Пытаемся загрузить реальные данные из Supabase
       const { data: userSpheres, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, sphere_code, health_percentage, is_active, category_mascot_url')
+        .select('id, sphere_name, health_percentage, is_active, category_mascot_url, sphere_code')
         .eq('user_id', userId)
         .eq('is_active', true)
 

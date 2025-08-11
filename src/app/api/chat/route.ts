@@ -66,7 +66,7 @@ async function getUserContext(userId: string): Promise<string> {
     
     const { data: spheres } = await supabase
       .from('life_spheres')
-      .select('sphere_name, sphere_code, health_percentage')
+      .select('sphere_name, health_percentage, sphere_code')
       .eq('user_id', userId)
       .eq('is_active', true)
 
