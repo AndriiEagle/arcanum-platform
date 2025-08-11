@@ -96,6 +96,33 @@ export default function WorkspaceCanvas() {
     setMinimizedMap(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
+  // Добавление/удаление виджетов с сохранением
+  const addWidget = (type: Widget['type']) => {
+    const id = `w_${Date.now()}`
+    const newWidget: Widget = {
+      id,
+      type,
+      position: { x: 300, y: 200 },
+      data: {}
+    }
+    setWidgets(prev => {
+      const updated = [...prev, newWidget]
+      setTimeout(() => debouncedSaveLayout(updated), 0)
+      return updated
+    })
+  }
+
+  const removeWidget = (id: string) => {
+    setWidgets(prev => {
+      const updated = prev.filter(w => w.id !== id)
+      setTimeout(() => debouncedSaveLayout(updated), 0)
+      return updated
+    })
+    setMinimizedMap(prev => { const { [id]: _, ...rest } = prev; return rest })
+  }
+
+  const [showAddMenu, setShowAddMenu] = useState(false)
+
   const getWidgetIcon = (w: Widget): string => {
     switch (w.type) {
       case 'StatsWidget': return '📊'
@@ -434,7 +461,7 @@ export default function WorkspaceCanvas() {
                   key={widget.id}
                   id={widget.id}
                   initialPosition={widget.position}
-                  disabled={!!minimizedMap[widget.id]}
+                  disabled={false}
                 >
                   <div className="relative">
                     {/* Кнопка сворачивания/разворачивания */}
@@ -447,6 +474,16 @@ export default function WorkspaceCanvas() {
                     >
                       {minimizedMap[widget.id] ? '▣' : '▭'}
                     </button>
+
+                    {/* Кнопка удаления */}
+                    <button
+                      onPointerDown={(e)=>{ e.stopPropagation(); e.preventDefault() }}
+                      onMouseDown={(e)=>{ e.stopPropagation(); e.preventDefault() }}
+                      onClick={(e)=>{ e.stopPropagation(); removeWidget(widget.id) }}
+                      className="absolute -top-2 -left-2 z-20 w-6 h-6 rounded-full bg-gray-900 border border-gray-700 text-gray-300 hover:text-white hover:bg-red-700/60 shadow"
+                      title="Удалить виджет"
+                      aria-label="Удалить виджет"
+                    >×</button>
 
                     {minimizedMap[widget.id] ? (
                       <div
@@ -481,6 +518,24 @@ export default function WorkspaceCanvas() {
         <div className="text-xs text-gray-400 mb-1">Масштаб: {transformState.scale.toFixed(2)}x</div>
         <div className="text-[10px] text-gray-500">X: {transformState.positionX.toFixed(0)} • Y: {transformState.positionY.toFixed(0)}</div>
         <div className="text-[10px] text-green-400 mt-1">Виджетов: {widgets.length}</div>
+      </div>
+
+      {/* Кнопка добавления виджетов */}
+      <div className="absolute bottom-4 left-4 z-30">
+        <button
+          onClick={() => setShowAddMenu(v => !v)}
+          className="w-12 h-12 rounded-full bg-purple-600 hover:bg-purple-500 text-white text-2xl shadow-lg border border-purple-400"
+          title={showAddMenu ? 'Скрыть меню' : 'Добавить виджет'}
+        >+
+        </button>
+        {showAddMenu && (
+          <div className="mt-2 bg-gray-800/95 border border-gray-700 rounded-lg shadow-xl p-2 space-y-1">
+            <button className="w-full text-left text-sm text-gray-200 hover:text-white hover:bg-gray-700 rounded px-2 py-1" onClick={() => { addWidget('StatsWidget'); setShowAddMenu(false) }}>📊 Stats Widget</button>
+            <button className="w-full text-left text-sm text-gray-200 hover:text-white hover:bg-gray-700 rounded px-2 py-1" onClick={() => { addWidget('QuestWidget'); setShowAddMenu(false) }}>🎯 Quest Widget</button>
+            <button className="w-full text-left text-sm text-gray-200 hover:text-white hover:bg-gray-700 rounded px-2 py-1" onClick={() => { addWidget('GrowthWidget'); setShowAddMenu(false) }}>🌱 Growth Widget</button>
+            <button className="w-full text-left text-sm text-gray-200 hover:text-white hover:bg-gray-700 rounded px-2 py-1" onClick={() => { addWidget('ImageWidget'); setShowAddMenu(false) }}>🖼️ Image Widget</button>
+          </div>
+        )}
       </div>
 
       {/* Кнопка показа/скрытия информации об управлении */}
