@@ -14,6 +14,7 @@ interface TokenUsage {
  * Используется после каждого вызова OpenAI API
  */
 export async function logTokenUsage(usage: TokenUsage): Promise<void> {
+  if (typeof window !== 'undefined') return // не логируем с клиента
   const supabase = createServerClient()
   
   const { error } = await supabase
@@ -35,6 +36,7 @@ export async function logTokenUsage(usage: TokenUsage): Promise<void> {
  * Используется для проверки лимитов перед API вызовами
  */
 export async function getUserTokenUsage(userId: string): Promise<number> {
+  if (typeof window !== 'undefined') return 0 // клиент не ходит напрямую в БД
   const supabase = createServerClient()
   
   const { data, error } = await supabase
@@ -61,6 +63,7 @@ export async function getUserTokenStats(userId: string): Promise<{
   thisMonth: number
   totalCost: number
 }> {
+  if (typeof window !== 'undefined') return { today: 0, thisWeek: 0, thisMonth: 0, totalCost: 0 }
   const supabase = createServerClient()
   
   const now = new Date()
@@ -116,6 +119,9 @@ export async function checkTokenLimit(userId: string, isPremium: boolean = false
   percentageUsed: number
   upgradeRecommended: boolean
 }> {
+  if (typeof window !== 'undefined') {
+    return { isWithinLimit: true, tokensUsed: 0, limit: isPremium ? 10000 : 1000, percentageUsed: 0, upgradeRecommended: false }
+  }
   const tokensUsed = await getUserTokenUsage(userId)
   const limit = isPremium ? 10000 : 1000
   const percentageUsed = (tokensUsed / limit) * 100
