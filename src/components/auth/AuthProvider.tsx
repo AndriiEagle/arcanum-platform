@@ -25,6 +25,8 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     if (!isInitialized && isLoading) {
       const t = setTimeout(() => {
         try { console.warn('[AuthProvider] init watchdog fired') } catch {}
+        // Повторная попытка инициализации
+        try { initialize() } catch {}
       }, 5000)
       return () => clearTimeout(t)
     }

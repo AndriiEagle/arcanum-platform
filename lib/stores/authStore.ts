@@ -234,7 +234,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        try { console.log('[AuthStore] onAuthStateChange', event, !!session?.user) } catch {}
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session?.user) {
           const profile = await fetchUserProfile(session.user.id)
           const user: User = {
             id: session.user.id,
