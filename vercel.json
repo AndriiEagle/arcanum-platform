@@ -40,19 +40,16 @@
     {
       "path": "/api/orchestrator/daily-run",
       "schedule": "0 0 * * *",
-      "headers": { "x-cron-secret": "@cron-secret" },
       "timezone": "Europe/Zurich"
     },
     {
       "path": "/api/orchestrator/weekly-run",
       "schedule": "0 9 * * 1",
-      "headers": { "x-cron-secret": "@cron-secret" },
       "timezone": "Europe/Zurich"
     },
     {
       "path": "/api/orchestrator/monthly-run",
       "schedule": "0 10 1 * *",
-      "headers": { "x-cron-secret": "@cron-secret" },
       "timezone": "Europe/Zurich"
     }
   ],
