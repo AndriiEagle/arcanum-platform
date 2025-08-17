@@ -70,9 +70,32 @@ export default function ResonanceView() {
       }
 
       if (userSpheres && userSpheres.length > 0) {
+        // Дедупликация: ключ по sphere_code, иначе по нормализованному имени
+        const map = new Map<string, any>()
+        for (const s of userSpheres as any[]) {
+          const code = (s.sphere_code || '').toString().trim()
+          const nameKey = (s.sphere_name || '').toString().toLowerCase().replace(/\s+/g, ' ').trim()
+          const key = code ? `code:${code}` : `name:${nameKey}`
+          const prev = map.get(key)
+          if (!prev) {
+            map.set(key, s)
+          } else {
+            // Предпочтем запись с кодом, затем с иконкой
+            const prefer = (a: any, b: any) => {
+              if (a.sphere_code && !b.sphere_code) return a
+              if (b.sphere_code && !a.sphere_code) return b
+              if (a.category_mascot_url && !b.category_mascot_url) return a
+              if (b.category_mascot_url && !a.category_mascot_url) return b
+              return a // по умолчанию оставляем первую
+            }
+            map.set(key, prefer(prev, s))
+          }
+        }
+        const deduped = Array.from(map.values())
+
         // Преобразуем данные из БД в формат для визуализации
-        const mappedSpheres: Sphere[] = userSpheres.map((sphere: any, index: number) => {
-          const angle = (index * 2 * Math.PI) / userSpheres.length
+        const mappedSpheres: Sphere[] = deduped.map((sphere: any, index: number) => {
+          const angle = (index * 2 * Math.PI) / deduped.length
           const x = centerX + radius * Math.cos(angle)
           const y = centerY + radius * Math.sin(angle)
           
