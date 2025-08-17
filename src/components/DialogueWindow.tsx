@@ -349,6 +349,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
     setIsLoading(true)
 
     try {
+      console.log('[chat][ui] send', { userId, len: userMessage.content.length })
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -369,6 +370,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
         const data = await response.json()
         responseText = data.response || 'MOYO получил пустой ответ от сервера.'
         messageType = data.type || data.commandType || 'text'
+        console.log('[chat][ui] ok', { commandType: data.commandType, modelUsed: data.modelUsed, traceId: data.traceId })
         if (data.tokensUsed) {
           console.log('[DBG][DialogueWindow] tokensUsed', data.tokensUsed)
           addTokenUsage(Math.floor(data.tokensUsed * 0.6), Math.floor(data.tokensUsed * 0.4))
@@ -407,6 +409,8 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
         } catch {}
         responseText = 'Достигнут лимит токенов. Обновите тариф.'
       } else {
+        const raw = await response.text()
+        console.error('[chat][ui] http error', { status: response.status, statusText: response.statusText, body: raw })
         responseText = `Ошибка API (${response.status}): ${response.statusText}`
       }
 

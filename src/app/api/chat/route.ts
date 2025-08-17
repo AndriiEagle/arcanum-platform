@@ -29,6 +29,11 @@ const ARCANUM_BRAIN_PROMPT = `Ты — Chief Orchestrator AI платформы 
 
 Если контекст пользователя недоступен, сообщи об этом и предложи базовую помощь.`
 
+// Utility: trace id + timing
+function createTraceId(): string {
+  return `chat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+}
+
 // Получение максимального количества токенов для модели
 function getMaxTokensForModel(modelId: string): number {
   const modelLimits: Record<string, number> = {
@@ -146,7 +151,10 @@ ${profilesSummary || 'Цели и планы не загружены'}
 
 export async function POST(request: NextRequest) {
   try {
+    const traceId = createTraceId()
+    const startedAt = Date.now()
     const { message, userId, modelId = 'gpt-4o-mini' } = await request.json()
+    console.log(`[chat][${traceId}] input`, { userId, modelId, hasMessage: !!message })
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -166,9 +174,10 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-    console.log('Arcanum Brain processing message:', message, 'for user:', userId)
+    console.log(`[chat][${traceId}] processing`, { userId, msgLen: String(message).length })
 
     const userContext = await getUserContext(userId)
+    console.log(`[chat][${traceId}] contextLen`, userContext?.length || 0)
     const commandType = detectCommandType(message)
 
     let systemPrompt = ARCANUM_BRAIN_PROMPT
@@ -181,6 +190,7 @@ export async function POST(request: NextRequest) {
       const isPremium = false
       const tokenLimit = isPremium ? 10000 : 5000
       if (userTokensUsed > tokenLimit) {
+        console.warn(`[chat][${traceId}] token limit`, { userId, userTokensUsed, tokenLimit })
         return NextResponse.json({
           error: 'TOKEN_LIMIT',
           tokens_used: userTokensUsed,
@@ -189,7 +199,7 @@ export async function POST(request: NextRequest) {
         }, { status: 402 })
       }
     } catch (error) {
-      console.error('Error checking token limits:', error)
+      console.error(`[chat][${traceId}] token-limit check error`, error)
     }
 
     const response = await openai.chat.completions.create({
@@ -203,6 +213,7 @@ export async function POST(request: NextRequest) {
     })
 
     const aiResponse = response.choices[0]?.message?.content || 'Извините, не смог обработать ваш запрос.'
+    console.log(`[chat][${traceId}] openai done`, { usage: response.usage || null, tookMs: Date.now() - startedAt })
 
     if (response.usage) {
       try {
@@ -214,14 +225,15 @@ export async function POST(request: NextRequest) {
           total_tokens: response.usage.total_tokens || 0,
           cost: calculateCost(modelId, response.usage.prompt_tokens || 0, response.usage.completion_tokens || 0)
         })
+        console.log(`[chat][${traceId}] usage logged`, { total: response.usage.total_tokens })
       } catch (error) {
-        console.error('Failed to log token usage:', error)
+        console.error(`[chat][${traceId}] usage log error`, error)
       }
     }
 
-    return NextResponse.json({ response: aiResponse, commandType, modelUsed: modelId, tokensUsed: response.usage?.total_tokens || 0 })
+    return NextResponse.json({ response: aiResponse, commandType, modelUsed: modelId, tokensUsed: response.usage?.total_tokens || 0, traceId })
   } catch (error) {
-    console.error('Error in Arcanum Brain API:', error)
+    console.error('[chat] fatal', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ response: `Извините, произошла ошибка: ${errorMessage}. Попробуйте еще раз.`, type: 'system' }, { status: 500 })
   }
