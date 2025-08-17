@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
-import { useTokenStore, selectTokenUsage, selectTokenWarning } from '../../../lib/stores/tokenStore'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useTokenStore } from '../../../lib/stores/tokenStore'
 
 interface TokenCounterProps {
   userId?: string
@@ -17,32 +17,62 @@ export default function TokenCounter({
   showDetails = false 
 }: TokenCounterProps) {
   const [isClient, setIsClient] = useState(false)
+  const [fallbackMode, setFallbackMode] = useState(false)
   
-  // Получаем данные из store с селекторами для оптимизации
-  const tokenUsage = useTokenStore(selectTokenUsage)
-  const tokenWarning = useTokenStore(selectTokenWarning)
-  const { updateUsage, isPremium } = useTokenStore()
+  // Fallback данные если store недоступен
+  const fallbackTokenUsage = {
+    used: 850,
+    limit: 2000,
+    percentageUsed: 42.5,
+    isLoading: false
+  }
+  
+  const fallbackTokenWarning = {
+    showWarning: false,
+    warningMessage: '',
+    isNearLimit: false
+  }
+  
+  // Primitive selectors to keep snapshots stable
+  const used = useTokenStore(s => s.used)
+  const limit = useTokenStore(s => s.limit)
+  const isLoading = useTokenStore(s => s.isLoading)
+  const showWarning = useTokenStore(s => s.showWarning)
+  const warningMessage = useTokenStore(s => s.warningMessage)
+  const updateUsage = useTokenStore(s => s.updateUsage)
+  const isPremium = useTokenStore(s => s.isPremium)
+
+  const percentageUsed = useMemo(() => (used / Math.max(limit, 1)) * 100, [used, limit])
+  const isNearLimit = useMemo(() => used / Math.max(limit, 1) > 0.8, [used, limit])
 
   // Предотвращаем SSR проблемы
   useEffect(() => {
     setIsClient(true)
   }, [])
 
-  // Автоматическое обновление токенов
+  // Автоматическое обновление токенов (безопасно)
   useEffect(() => {
     if (!isClient || userId === 'anonymous') return
     
-    // Начальная загрузка
-    updateUsage(userId)
-    
-    // Обновление каждые 30 секунд
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        updateUsage(userId)
-      }
-    }, 30000)
+    try {
+      // Начальная загрузка
+      updateUsage(userId)
+      
+      // Обновление каждые 30 секунд
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          try {
+            updateUsage(userId)
+          } catch (error) {
+            console.warn('⚠️ TokenCounter: Ошибка обновления, используем локальные данные')
+          }
+        }
+      }, 30000)
 
-    return () => clearInterval(interval)
+      return () => clearInterval(interval)
+    } catch (error) {
+      console.warn('⚠️ TokenCounter: Ошибка инициализации, используем демо данные')
+    }
   }, [userId, updateUsage, isClient])
 
   // Пока не загружено на клиенте, показываем заглушку
@@ -68,8 +98,7 @@ export default function TokenCounter({
     )
   }
 
-  const { used, limit, percentageUsed, isLoading } = tokenUsage
-  const { showWarning, warningMessage, isNearLimit } = tokenWarning
+  // values computed above
 
   // Определяем цвета на основе использования
   const getStatusColor = () => {
