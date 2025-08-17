@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     const [statsRes, spheresRes, opRes, sProfilesRes] = await Promise.all([
       supabase.from('user_stats').select('level,current_xp,next_level_xp,energy,coins').eq('user_id', userId).maybeSingle(),
       // Не фильтруем по is_active на уровне запроса — дальше нормализуем сами
-      supabase.from('life_spheres').select('sphere_name,health_percentage,is_active,sphere_code').eq('user_id', userId),
+      supabase.from('life_spheres').select('sphere_name,health_percentage,is_active,sphere_code,sphere_details').eq('user_id', userId),
       supabase.from('operator_profiles').select('version,last_update').eq('user_id', userId).maybeSingle(),
       supabase.from('sphere_profiles').select('sphere_code,meta,components,synergy').eq('user_id', userId)
     ])

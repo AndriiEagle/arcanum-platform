@@ -6,6 +6,7 @@ import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
 import { getDisplayNameForCode, getIconForCode } from '../../../lib/core/life-spheres'
 import { uploadImageResized } from '../../../lib/services/imageUpload'
+import SphereDetailModal from '../modals/SphereDetailModal'
 
 interface Sphere {
   id: string
@@ -18,6 +19,7 @@ interface Sphere {
   position: { x: number; y: number }
   imageUrl?: string
   code?: string
+  sphere_details?: any
 }
 
 interface Connection {
@@ -33,6 +35,8 @@ export default function ResonanceView() {
   const [selectedSphere, setSelectedSphere] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [animationActive, setAnimationActive] = useState(true)
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+  const [detailModalSphere, setDetailModalSphere] = useState<Sphere | null>(null)
 
   const userId = useCurrentUserId()
   const supabase = createClient()
@@ -61,7 +65,7 @@ export default function ResonanceView() {
       // Сортируем по sphere_code для стабильного порядка, затем по ID для детерминированности
       const { data: userSpheres, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, health_percentage, is_active, category_mascot_url, sphere_code')
+        .select('id, sphere_name, health_percentage, is_active, category_mascot_url, sphere_code, sphere_details')
         .eq('user_id', userId)
         .eq('is_active', true)
         .order('sphere_code', { ascending: true, nullsLast: true })
@@ -308,6 +312,16 @@ export default function ResonanceView() {
     }
   }
 
+  const openDetailModal = (sphere: Sphere) => {
+    setDetailModalSphere(sphere)
+    setIsDetailModalOpen(true)
+  }
+
+  const closeDetailModal = () => {
+    setIsDetailModalOpen(false)
+    setDetailModalSphere(null)
+  }
+
   // Получение статистики резонанса
   const getResonanceStats = () => {
     const activeSpheres: Sphere[] = spheres.filter((s: Sphere) => s.isActive)
@@ -539,11 +553,69 @@ export default function ResonanceView() {
                       {sphere.isActive ? "Активная" : "Неактивная"}
                     </span>
                   </div>
+                  
+                  {/* Детальная информация из sphere_details */}
+                  {sphere.sphere_details && (
+                    <div className="pt-3 border-t border-gray-700 mt-2">
+                      <h5 className="text-sm font-medium text-purple-300 mb-2">📋 Детали сферы</h5>
+                      
+                      {/* Миссия */}
+                      {sphere.sphere_details.meta?.mission && (
+                        <div className="mb-2">
+                          <span className="text-gray-400 text-xs">Миссия:</span>
+                          <p className="text-gray-200 text-xs mt-1">{sphere.sphere_details.meta.mission}</p>
+                        </div>
+                      )}
+                      
+                      {/* Основные компоненты */}
+                      {sphere.sphere_details.components && (
+                        <div className="mb-2">
+                          <span className="text-gray-400 text-xs">Компоненты:</span>
+                          <div className="text-gray-200 text-xs mt-1">
+                            {Object.keys(sphere.sphere_details.components).slice(0, 3).map((key, index) => (
+                              <div key={index} className="text-purple-200">• {key.replace(/_/g, ' ')}</div>
+                            ))}
+                            {Object.keys(sphere.sphere_details.components).length > 3 && (
+                              <div className="text-gray-400">... и ещё {Object.keys(sphere.sphere_details.components).length - 3}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Синергии */}
+                      {sphere.sphere_details.synergy && (
+                        <div className="mb-2">
+                          <span className="text-gray-400 text-xs">Синергии:</span>
+                          <div className="text-xs mt-1">
+                            {sphere.sphere_details.synergy.produces_for && (
+                              <div className="text-green-300">
+                                ▲ Усиливает: {Object.keys(sphere.sphere_details.synergy.produces_for).length} сфер
+                              </div>
+                            )}
+                            {sphere.sphere_details.synergy.consumes_from && (
+                              <div className="text-orange-300">
+                                ▼ Зависит от: {Object.keys(sphere.sphere_details.synergy.consumes_from).length} сфер
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="pt-2 border-t border-gray-700 mt-2">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <button onClick={() => handleUploadIcon(sphere)} className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs">🖼️ Загрузить иконку</button>
                       {sphere.imageUrl && (
                         <button onClick={() => handleResetIcon(sphere)} className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-xs">Сбросить</button>
+                      )}
+                      {sphere.sphere_details && (
+                        <button 
+                          onClick={() => openDetailModal(sphere)} 
+                          className="px-2 py-1 rounded bg-purple-700 hover:bg-purple-600 text-xs text-white font-medium"
+                        >
+                          📋 Детали
+                        </button>
                       )}
                     </div>
                   </div>
@@ -563,6 +635,13 @@ export default function ResonanceView() {
           })()}
         </div>
       )}
+
+      {/* Модал детального просмотра сферы */}
+      <SphereDetailModal
+        sphere={detailModalSphere}
+        isOpen={isDetailModalOpen}
+        onClose={closeDetailModal}
+      />
     </div>
   )
 } 

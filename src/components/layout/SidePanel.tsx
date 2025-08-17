@@ -108,20 +108,12 @@ export default function SidePanel({ position }: SidePanelProps) {
     try {
       const { data, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, health_percentage')
+        .select('id, sphere_name, sphere_code, health_percentage, sphere_details')
         .eq('user_id', userId)
         
       if (error) {
         console.error('Error loading spheres:', error)
-        // Создаем базовые сферы для нового пользователя
-        const life = await import('../../../lib/core/life-spheres')
-        const list = (Object.keys(life.SPHERE_CODE_TO_NAME) as Array<keyof typeof life.SPHERE_CODE_TO_NAME>).map((code)=>({
-          id: `placeholder_${code}`,
-          name: life.SPHERE_CODE_TO_NAME[code],
-          health_percentage: 50,
-          icon: life.SPHERE_CODE_TO_ICON[code]
-        }))
-        setSpheres(list)
+        setSpheres([])
       } else if (data && data.length > 0) {
         const { getDisplayNameForCode, getIconForCode } = await import('../../../lib/core/life-spheres')
         const mapped = data.map((sphere: { id: string; sphere_name: string; sphere_code?: string; health_percentage: number }) => ({
@@ -138,19 +130,13 @@ export default function SidePanel({ position }: SidePanelProps) {
           const name = getDisplayNameForCode(code)
           const item = mapped.find((m:any)=>m.name===name)
           if (item) fullList.push(item)
-          else fullList.push({ id: `placeholder_${code}`, name, health_percentage: 50, icon: getIconForCode(code) })
+          else {
+            // не добавляем плейсхолдеров — показываем только реальные сферы
+          }
         }
         setSpheres(fullList)
       } else {
-        // Создаем базовые сферы для нового пользователя
-        const life = await import('../../../lib/core/life-spheres')
-        const list = (Object.keys(life.SPHERE_CODE_TO_NAME) as Array<keyof typeof life.SPHERE_CODE_TO_NAME>).map((code)=>({
-          id: `placeholder_${code}`,
-          name: life.SPHERE_CODE_TO_NAME[code],
-          health_percentage: 50,
-          icon: life.SPHERE_CODE_TO_ICON[code]
-        }))
-        setSpheres(list)
+        setSpheres([])
       }
     } catch (error) {
       console.error('Error in loadUserSpheres:', error)
@@ -210,8 +196,11 @@ export default function SidePanel({ position }: SidePanelProps) {
     setActiveView('dashboard')
     setLeftPanel(true)
     openWidget('StatsColumnWidget')
+    // Небольшая задержка, чтобы виджет успел смонтироваться и подписаться на событие
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('OPEN_SPHERE_TREE', { detail: { sphereId: sphere.id, sphereName: sphere.name } }))
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('OPEN_SPHERE_TREE', { detail: { sphereId: sphere.id, sphereName: sphere.name } }))
+      }, 50)
     }
   }
 
