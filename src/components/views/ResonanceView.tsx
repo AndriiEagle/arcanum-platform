@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import React from 'react'
 import { createClient } from '../../../lib/supabase/client'
 import { useCurrentUserId } from '../../../lib/stores/authStore'
 import { getDisplayNameForCode, getIconForCode } from '../../../lib/core/life-spheres'
@@ -257,7 +258,7 @@ export default function ResonanceView() {
       }
 
       // Локально обновляем
-      setSpheres(prev => prev.map(s => s.id === sphere.id ? { ...s, imageUrl: url } : s))
+      setSpheres((prev: Sphere[]) => prev.map((s: Sphere) => s.id === sphere.id ? { ...s, imageUrl: url } : s))
     } catch (err) {
       console.error('Upload icon failed', err)
     }
@@ -272,7 +273,7 @@ export default function ResonanceView() {
           .eq('id', sphere.id)
           .eq('user_id', userId)
       }
-      setSpheres(prev => prev.map(s => s.id === sphere.id ? { ...s, imageUrl: undefined } : s))
+      setSpheres((prev: Sphere[]) => prev.map((s: Sphere) => s.id === sphere.id ? { ...s, imageUrl: undefined } : s))
     } catch (err) {
       console.error('Reset icon failed', err)
     }
@@ -280,11 +281,11 @@ export default function ResonanceView() {
 
   // Получение статистики резонанса
   const getResonanceStats = () => {
-    const activeSpheres = spheres.filter(s => s.isActive)
-    const avgHealth = activeSpheres.reduce((sum, s) => sum + s.health_percentage, 0) / activeSpheres.length
-    const avgResonance = activeSpheres.reduce((sum, s) => sum + s.resonance_degree, 0) / activeSpheres.length
-    const synergyConnections = connections.filter(c => c.type === 'synergy').length
-    const conflictConnections = connections.filter(c => c.type === 'conflict').length
+    const activeSpheres: Sphere[] = spheres.filter((s: Sphere) => s.isActive)
+    const avgHealth = activeSpheres.reduce((sum: number, s: Sphere) => sum + s.health_percentage, 0) / Math.max(1, activeSpheres.length)
+    const avgResonance = activeSpheres.reduce((sum: number, s: Sphere) => sum + s.resonance_degree, 0) / Math.max(1, activeSpheres.length)
+    const synergyConnections = connections.filter((c: Connection) => c.type === 'synergy').length
+    const conflictConnections = connections.filter((c: Connection) => c.type === 'conflict').length
     
     return {
       avgHealth: Math.round(avgHealth || 0),
@@ -373,9 +374,9 @@ export default function ResonanceView() {
         </g>
 
         {/* Связи между сферами */}
-        {connections.map((connection, index) => {
-          const fromSphere = spheres.find(s => s.id === connection.from)
-          const toSphere = spheres.find(s => s.id === connection.to)
+        {connections.map((connection: Connection, index: number) => {
+          const fromSphere = spheres.find((s: Sphere) => s.id === connection.from)
+          const toSphere = spheres.find((s: Sphere) => s.id === connection.to)
           
           if (!fromSphere || !toSphere) return null
           
@@ -398,9 +399,9 @@ export default function ResonanceView() {
         })}
 
         {/* Анимированные частицы */}
-        {animationActive && connections.map((connection, index) => {
-          const fromSphere = spheres.find(s => s.id === connection.from)
-          const toSphere = spheres.find(s => s.id === connection.to)
+        {animationActive && connections.map((connection: Connection, index: number) => {
+          const fromSphere = spheres.find((s: Sphere) => s.id === connection.from)
+          const toSphere = spheres.find((s: Sphere) => s.id === connection.to)
           
           if (!fromSphere || !toSphere || connection.type === 'conflict') return null
           
@@ -421,7 +422,7 @@ export default function ResonanceView() {
         })}
 
         {/* Сферы жизни */}
-        {spheres.map((sphere) => (
+        {spheres.map((sphere: Sphere) => (
           <g key={sphere.id}>
             {/* База круга */}
             <circle
@@ -486,7 +487,7 @@ export default function ResonanceView() {
       {selectedSphere && (
         <div className="absolute top-4 right-4 bg-gray-800/90 backdrop-blur-sm rounded-lg p-4 max-w-xs z-10">
           {(() => {
-            const sphere = spheres.find(s => s.id === selectedSphere)
+            const sphere = spheres.find((s: Sphere) => s.id === selectedSphere)
             if (!sphere) return null
             
             return (
