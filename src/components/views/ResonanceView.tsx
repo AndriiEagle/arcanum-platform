@@ -58,11 +58,14 @@ export default function ResonanceView() {
       }
 
       // Пытаемся загрузить реальные данные из Supabase
+      // Сортируем по sphere_code для стабильного порядка, затем по ID для детерминированности
       const { data: userSpheres, error } = await supabase
         .from('life_spheres')
         .select('id, sphere_name, health_percentage, is_active, category_mascot_url, sphere_code')
         .eq('user_id', userId)
         .eq('is_active', true)
+        .order('sphere_code', { ascending: true, nullsLast: true })
+        .order('id', { ascending: false })
 
       if (error) {
         console.error('Error loading spheres from DB:', error)
@@ -71,27 +74,53 @@ export default function ResonanceView() {
       }
 
       if (userSpheres && userSpheres.length > 0) {
-        // Дедупликация: ключ по sphere_code, иначе по нормализованному имени
+        // Усиленная дедупликация: приоритет sphere_code, затем фильтрация по имени
         const map = new Map<string, any>()
+        
+        // Сначала добавляем все записи с sphere_code (они имеют наивысший приоритет)
         for (const s of userSpheres as any[]) {
           const code = (s.sphere_code || '').toString().trim()
-          const nameKey = (s.sphere_name || '').toString().toLowerCase().replace(/\s+/g, ' ').trim()
-          const key = code ? `code:${code}` : `name:${nameKey}`
-          const prev = map.get(key)
-          if (!prev) {
-            map.set(key, s)
-          } else {
-            // Предпочтем запись с кодом, затем с иконкой
-            const prefer = (a: any, b: any) => {
-              if (a.sphere_code && !b.sphere_code) return a
-              if (b.sphere_code && !a.sphere_code) return b
-              if (a.category_mascot_url && !b.category_mascot_url) return a
-              if (b.category_mascot_url && !a.category_mascot_url) return b
-              return a // по умолчанию оставляем первую
+          if (code && ['S1','S2','S3','S4','S5','S6','S7','S8','S9'].includes(code)) {
+            const existing = map.get(code)
+            if (!existing) {
+              map.set(code, s)
+            } else {
+              // Если дубль, берем запись с более свежими данными или лучшими полями
+              const prefer = (a: any, b: any) => {
+                // Приоритет: category_mascot_url > health_percentage > больший ID
+                if (a.category_mascot_url && !b.category_mascot_url) return a
+                if (b.category_mascot_url && !a.category_mascot_url) return b
+                if ((a.health_percentage || 0) !== (b.health_percentage || 0)) {
+                  return (a.health_percentage || 0) > (b.health_percentage || 0) ? a : b
+                }
+                // Если все равно, берем с большим ID (более свежая запись)
+                return parseInt(a.id || '0') > parseInt(b.id || '0') ? a : b
+              }
+              map.set(code, prefer(existing, s))
             }
-            map.set(key, prefer(prev, s))
           }
         }
+        
+        // Если не хватает до 9 сфер, добавляем записи без sphere_code (для обратной совместимости)
+        if (map.size < 9) {
+          for (const s of userSpheres as any[]) {
+            if (s.sphere_code) continue // уже обработали
+            
+            const nameKey = (s.sphere_name || '').toString().toLowerCase().replace(/\s+/g, ' ').trim()
+            if (!nameKey) continue
+            
+            // Проверяем, не совпадает ли это имя с уже добавленными sphere_code
+            const isAlreadyMapped = Array.from(map.values()).some((existing: any) => {
+              const existingName = (existing.sphere_name || '').toString().toLowerCase().replace(/\s+/g, ' ').trim()
+              return existingName === nameKey
+            })
+            
+            if (!isAlreadyMapped && map.size < 9) {
+              map.set(`legacy:${nameKey}`, s)
+            }
+          }
+        }
+        
         const deduped = Array.from(map.values())
 
         // Преобразуем данные из БД в формат для визуализации

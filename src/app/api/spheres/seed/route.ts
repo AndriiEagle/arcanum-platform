@@ -24,56 +24,54 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServerClient()
 
-    // If user already has spheres, do nothing
-    const { data: existing, error: existErr } = await supabase
+    // Проверяем, есть ли у пользователя все 9 сфер с sphere_code
+    const { data: existingSpheres, error: existErr } = await supabase
       .from('life_spheres')
-      .select('id')
+      .select('sphere_code')
       .eq('user_id', userId)
-      .limit(1)
-    if (!existErr && existing && existing.length > 0) {
-      // ensure step: активируем и нормализуем имена/код/проценты
-      const ensurePayload = SPHERES9.map(s => ({
-        user_id: userId,
-        sphere_code: s.code,
-        sphere_name: s.name,
-        is_active: true,
-        health_percentage: 50
-      }))
-      await supabase.from('life_spheres').upsert(ensurePayload, { onConflict: 'user_id,sphere_code' })
-      return NextResponse.json({ ok: true, userId, skipped: true })
+      .not('sphere_code', 'is', null)
+    
+    if (existErr) {
+      console.error('[seed] Error checking existing spheres:', existErr)
     }
 
-    // Try RPC first, но с таймаутом
-    let rpcOk = false
-    try {
-      const rpcRes = await Promise.race([
-        supabase.rpc('seed_spheres_v9', { p_user_id: userId }),
-        timeout(8000)
-      ]) as { error: { message: string } | null }
-      if (!rpcRes.error) {
-        rpcOk = true
-      } else {
-        console.warn('[seed] RPC error, fallback to insert', rpcRes.error)
-      }
-    } catch (e: any) {
-      console.warn('[seed] RPC timeout/failure, fallback to insert', e?.message)
+    const existingCodes = new Set((existingSpheres || []).map(s => s.sphere_code))
+    const missingCodes = SPHERES9.filter(s => !existingCodes.has(s.code))
+
+    // Если у пользователя уже есть все 9 сфер, ничего не делаем
+    if (missingCodes.length === 0) {
+      console.log('[seed] User already has all 9 spheres, skipping')
+      return NextResponse.json({ ok: true, userId, skipped: true, existing: existingCodes.size })
     }
 
-    // Обеспечивающий шаг: upsert всех 9 с дефолтами (покроет оба пути — RPC и fallback)
-    const payload = SPHERES9.map(s => ({
+    console.log('[seed] Missing spheres for user:', missingCodes.map(s => s.code))
+
+    // Создаем только недостающие сферы
+    const payload = missingCodes.map(s => ({
       user_id: userId,
       sphere_code: s.code,
       sphere_name: s.name,
       is_active: true,
       health_percentage: 50
     }))
-    const upsertRes = await Promise.race([
-      supabase.from('life_spheres').upsert(payload, { onConflict: 'user_id,sphere_code' }),
-      timeout(8000)
-    ]) as { error: { message: string } | null }
-    if (upsertRes.error) return NextResponse.json({ error: upsertRes.error.message }, { status: 500 })
 
-    return NextResponse.json({ ok: true, userId, rpc: rpcOk, ensured: true })
+    // Используем простой upsert вместо RPC для надежности
+    const { error: upsertError } = await supabase
+      .from('life_spheres')
+      .upsert(payload, { onConflict: 'user_id,sphere_code' })
+
+    if (upsertError) {
+      console.error('[seed] Upsert error:', upsertError)
+      return NextResponse.json({ error: upsertError.message }, { status: 500 })
+    }
+
+    console.log('[seed] Successfully created/updated spheres for user:', userId)
+    return NextResponse.json({ 
+      ok: true, 
+      userId, 
+      created: payload.length, 
+      sphereCodes: payload.map(s => s.sphere_code) 
+    })
   } catch (e: any) {
     console.error('[seed] fatal', e?.message)
     return NextResponse.json({ error: e?.message || 'Unknown error' }, { status: 500 })
