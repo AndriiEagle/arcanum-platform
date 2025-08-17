@@ -451,16 +451,16 @@ export default function WorkspaceCanvas() {
 
       <DndContext onDragEnd={handleDragEnd}>
                   <TransformWrapper
-          initialScale={1.2}
+          initialScale={1}
           minScale={0.25}
           maxScale={8}
-          centerOnInit={true}
-          centerZoomedOut={true}
+          centerOnInit={false}
+          centerZoomedOut={false}
           limitToBounds={false}
           wheel={{ 
             wheelDisabled: false,
             touchPadDisabled: false,
-            step: 0.2,
+            step: 0.15,
             activationKeys: [],
             excluded: []
           }}

@@ -447,28 +447,16 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
     <>
       {/* 🚀 BACKDROP с идеальной анимацией */}
       <div 
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-all duration-300 ${
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-all duration-300 flex items-center justify-center p-5 ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={handleBackdropClick}
-        style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          padding: '20px'
-        }}
       >
         {/* 🚀 МОДАЛЬНОЕ ОКНО с идеальным центрированием и анимацией */}
         <div 
           className={`bg-gray-800 rounded-xl shadow-2xl flex overflow-hidden border border-gray-600 transform transition-all duration-300 ${
             isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          }`}
-          style={{
-            width: 'min(95vw, 1200px)',
-            height: 'min(90vh, 800px)',
-            maxWidth: '1200px',
-            maxHeight: '800px'
-          }}
+          } w-full max-w-6xl h-full max-h-[90vh]`}
           onClick={(e) => e.stopPropagation()}
         >
           
