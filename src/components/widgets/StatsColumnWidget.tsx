@@ -16,6 +16,7 @@ interface Sphere {
   color: string
   icon: string
   global_goal?: string
+  code?: string
 }
 
 interface UserStats {
@@ -100,55 +101,52 @@ export default function StatsColumnWidget() {
   // Supabase client should be created inside functions to keep stable deps and avoid re-renders
 
   // Функция загрузки данных сфер из Supabase
-  const loadSpheresFromSupabase = useCallback(async () => {
+  const loadSpheresFromSupabase = useCallback(async (): Promise<Sphere[]> => {
     console.log('[DBG][StatsColumnWidget] loadSpheresFromSupabase start', { userId })
     try {
       setIsLoading(true)
       if (!userId) {
-        console.log('User not authenticated, using static spheres data')
+        console.log('User not authenticated; no data will be shown')
+        setSpheres([])
         setIsLoading(false)
-        return
+        return []
       }
       const supabase = createClient()
       const { data, error } = await supabase
         .from('life_spheres')
-        .select('id, sphere_name, sphere_code, health_percentage, is_active')
+        .select('id, sphere_name, sphere_code, health_percentage, is_active, sphere_details')
         .eq('user_id', userId)
         .not('sphere_code', 'is', null)
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error loading spheres:', error)
-        return
+        setSpheres([])
       }
 
       if (data && data.length > 0) {
         console.log('[DBG][StatsColumnWidget] spheres loaded', data.length)
         const { getDisplayNameForCode, getIconForCode } = await import('../../../lib/core/life-spheres')
-        const byCode = new Map<string, any>()
-        for (const s of data as any[]) {
-          const code = String(s.sphere_code)
-          if (!byCode.has(code)) byCode.set(code, s)
-        }
-        const codes = ['S1','S2','S3','S4','S5','S6','S7','S8','S9'] as const
-        const mapped = codes.map(code => {
-          const s = byCode.get(code)
-          return {
-            id: s?.id || `placeholder_${code}`,
-            name: getDisplayNameForCode(code),
-            health_percentage: s?.health_percentage ?? 50,
-            color: 'blue',
-            icon: getIconForCode(code),
-            global_goal: s?.global_goal
-          }
-        })
+        const mapped: Sphere[] = (data as any[]).map((s) => ({
+          id: s.id,
+          name: s.sphere_code ? getDisplayNameForCode(String(s.sphere_code)) : s.sphere_name,
+          health_percentage: s.health_percentage ?? 50,
+          color: 'blue',
+          icon: s.sphere_code ? getIconForCode(String(s.sphere_code)) : getSphereIcon(s.sphere_name),
+          global_goal: s.global_goal,
+          code: s.sphere_code || undefined
+        }))
         setSpheres(mapped)
+        return mapped
       }
+      setSpheres([])
+      return []
     } catch (error) {
       console.error('Error in loadSpheresFromSupabase:', error)
     } finally {
       console.log('[DBG][StatsColumnWidget] loadSpheresFromSupabase end')
       setIsLoading(false)
     }
+    return []
   }, [userId])
 
   // Функция для получения иконки сферы
@@ -162,7 +160,7 @@ export default function StatsColumnWidget() {
   }
 
   // Функция обработки клика по сфере - открывает дерево развития
-  const handleSphereClick = (sphere: Sphere) => {
+  const handleSphereClick = async (sphere: Sphere) => {
     setSelectedSphereForTree(sphere)
     setIsTreeModalOpen(true)
   }
@@ -436,7 +434,7 @@ export default function StatsColumnWidget() {
         <div>
           <h3 className="text-lg font-semibold text-white mb-3 flex items-center">
             <span className="mr-2">🌐</span>
-            Сферы Жизни ({spheres.length}/12)
+            Сферы Жизни ({spheres.length})
             <button
               onClick={() => setIsAddSphereOpen(true)}
               className="ml-auto text-xs px-2 py-1 bg-purple-700 hover:bg-purple-600 rounded"

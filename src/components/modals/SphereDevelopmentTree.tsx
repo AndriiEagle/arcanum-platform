@@ -21,6 +21,7 @@ interface Category {
   completed_tasks: number
   tasks: Task[]
   mascot_url?: string
+  icon?: string
 }
 
 interface Task {
@@ -70,25 +71,58 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
   // 🚀 МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ: ESC и клик вне модала для закрытия
   const handleEscapeKey = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Escape' && isOpen) {
+      event.preventDefault()
+      event.stopPropagation()
+      console.log('🚀 Закрытие модала по ESC')
       onClose()
     }
   }, [isOpen, onClose])
 
   const handleBackdropClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    // Убеждаемся что клик точно по backdrop, а не по его дочерним элементам
     if (event.target === event.currentTarget) {
+      event.preventDefault()
+      event.stopPropagation()
+      console.log('🚀 Закрытие модала по клику на backdrop')
       onClose()
     }
   }, [onClose])
 
-  // 🚀 МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ: Подписка на ESC
+  // Принудительное закрытие модала
+  const handleForceClose = useCallback((event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    console.log('🚀 Принудительное закрытие модала')
+    onClose()
+  }, [onClose])
+
+  // 🚀 МАКСИМАЛЬНАЯ ОПТИМИЗАЦИЯ: Подписка на ESC и блокирование скролла
   useEffect(() => {
     if (isOpen) {
-      document.addEventListener('keydown', handleEscapeKey)
-      // Блокируем скролл body при открытом модале
+      // Сохраняем исходное состояние скролла
+      const originalOverflow = document.body.style.overflow
+      const originalPaddingRight = document.body.style.paddingRight
+      
+      // Вычисляем ширину скроллбара
+      const scrollBarWidth = window.innerWidth - document.documentElement.clientWidth
+      
+      // Блокируем скролл и компенсируем исчезновение скроллбара
       document.body.style.overflow = 'hidden'
+      document.body.style.paddingRight = `${scrollBarWidth}px`
+      
+      // Добавляем обработчик ESC
+      document.addEventListener('keydown', handleEscapeKey, { capture: true })
+      
+      console.log('🚀 Модал открыт, скролл заблокирован')
+      
       return () => {
-        document.removeEventListener('keydown', handleEscapeKey)
-        document.body.style.overflow = 'auto'
+        // Восстанавливаем исходное состояние
+        document.body.style.overflow = originalOverflow
+        document.body.style.paddingRight = originalPaddingRight
+        document.removeEventListener('keydown', handleEscapeKey, { capture: true })
+        console.log('🚀 Модал закрыт, скролл восстановлен')
       }
     }
   }, [isOpen, handleEscapeKey])
@@ -116,14 +150,15 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
         loadFallbackCategories()
       } else if (dbCategories && dbCategories.length > 0) {
         // Преобразуем данные из БД (без join по задачам)
-        const mappedCategories = dbCategories.map((cat: any) => ({
+        const mappedCategories: Category[] = dbCategories.map((cat: any) => ({
           id: cat.id,
           name: cat.name,
           progress: cat.progress || 0,
           total_tasks: 0,
           completed_tasks: 0,
           tasks: [],
-          mascot_url: cat.mascot_url
+          mascot_url: cat.mascot_url,
+          icon: cat.icon || '📋'
         }))
         setCategories(mappedCategories)
         setSelectedCategory(mappedCategories[0]?.id || '')
@@ -200,7 +235,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
     setSelectedCategory(fallbackData[0]?.id || '')
   }
 
-  const getDefaultCategoriesForSphere = (_sphereName: string) => {
+  const getDefaultCategoriesForSphere = (_sphereName: string): Category[] => {
     // Generic defaults independent of legacy names
     return [
       {
@@ -209,6 +244,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
         progress: 0,
         total_tasks: 3,
         completed_tasks: 0,
+        icon: '🎯',
         tasks: [
           { id: 'g1', name: 'Define 1 concrete improvement', xp_reward: 80, priority: 'high' as const, is_completed: false, category_id: 'general-1' },
           { id: 'g2', name: 'Prepare environment/tools', xp_reward: 60, priority: 'medium' as const, is_completed: false, category_id: 'general-1' },
@@ -235,7 +271,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
         const data = await response.json()
         
         // Обновляем локальное состояние
-        setCategories(prev => prev.map(cat => 
+        setCategories((prev: Category[]) => prev.map((cat: Category) => 
           cat.id === categoryId 
             ? { ...cat, mascot_url: data.imageUrl }
             : cat
@@ -274,8 +310,8 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
         .single()
       if (error) throw error
 
-      const newCat: Category = { id: data.id, name: data.name, progress: 0, total_tasks: 0, completed_tasks: 0, tasks: [] }
-      setCategories(prev => [newCat, ...prev])
+      const newCat: Category = { id: data.id, name: data.name, progress: 0, total_tasks: 0, completed_tasks: 0, tasks: [], icon: '📋' }
+      setCategories((prev: Category[]) => [newCat, ...prev])
       setSelectedCategory(newCat.id)
       setIsAddCategoryOpen(false)
       setNewCategoryName('')
@@ -302,7 +338,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
       if (error) throw error
 
       const newTask: Task = { id: data.id, name: data.task_name, xp_reward: data.xp_reward, priority: data.priority, is_completed: false, category_id: selectedCategory }
-      setCategories(prev => prev.map(cat => cat.id === selectedCategory ? { ...cat, tasks: [newTask, ...cat.tasks], total_tasks: (cat.total_tasks || 0) + 1 } : cat))
+      setCategories((prev: Category[]) => prev.map((cat: Category) => cat.id === selectedCategory ? { ...cat, tasks: [newTask, ...cat.tasks], total_tasks: (cat.total_tasks || 0) + 1 } : cat))
       setIsAddTaskOpen(false)
       setNewTaskName('')
       setNewTaskXP(50)
@@ -326,11 +362,11 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
     const newCompletionStatus = !task.is_completed
     
     // Обновляем локальное состояние
-    setCategories(prev => prev.map(cat => 
+    setCategories((prev: Category[]) => prev.map((cat: Category) => 
       cat.id === categoryId 
         ? {
             ...cat,
-            tasks: cat.tasks.map(t => 
+            tasks: cat.tasks.map((t: Task) => 
               t.id === taskId 
                 ? { ...t, is_completed: newCompletionStatus }
                 : t
@@ -445,18 +481,37 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
 
   return (
     <>
-      {/* 🚀 BACKDROP с идеальной анимацией */}
+      {/* 🚀 BACKDROP с фиксированным позиционированием и улучшенной обработкой событий */}
       <div 
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-all duration-300 flex items-center justify-center p-5 ${
-          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-all duration-300 ${
+          isOpen ? 'opacity-100 z-[999]' : 'opacity-0 pointer-events-none z-[-1]'
         }`}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1.25rem'
+        }}
         onClick={handleBackdropClick}
       >
-        {/* 🚀 МОДАЛЬНОЕ ОКНО с идеальным центрированием и анимацией */}
+        {/* 🚀 МОДАЛЬНОЕ ОКНО с принудительным центрированием */}
         <div 
           className={`bg-gray-800 rounded-xl shadow-2xl flex overflow-hidden border border-gray-600 transform transition-all duration-300 ${
             isOpen ? 'scale-100 opacity-100' : 'scale-95 opacity-0'
-          } w-full max-w-6xl h-full max-h-[90vh]`}
+          }`}
+          style={{
+            width: '100%',
+            maxWidth: '1152px', // max-w-6xl = 72rem = 1152px
+            height: '100%',
+            maxHeight: '90vh',
+            position: 'relative',
+            margin: 'auto'
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           
@@ -476,7 +531,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
                   + Категория
                 </button>
                 <button
-                  onClick={onClose}
+                  onClick={handleForceClose}
                   className="text-gray-400 hover:text-white hover:bg-gray-700 w-8 h-8 rounded-lg flex items-center justify-center transition-all"
                   title="Закрыть (ESC)"
                 >
@@ -628,7 +683,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
       {/* 🚀 МОДАЛЬНЫЕ ОКНА для добавления категорий/задач */}
       {/* Добавление категории */}
       {isAddCategoryOpen && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60" onClick={() => setIsAddCategoryOpen(false)}>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[1000]" onClick={() => setIsAddCategoryOpen(false)}>
           <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-white font-semibold mb-4 text-lg">Добавить категорию</h4>
             {addCategoryError && (
@@ -669,7 +724,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
 
       {/* Модалка добавления задачи */}
       {isAddTaskOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={()=>setIsAddTaskOpen(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]" onClick={()=>setIsAddTaskOpen(false)}>
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 w-full max-w-sm mx-4" onClick={(e)=>e.stopPropagation()}>
             <h4 className="text-white font-semibold mb-3">Добавить задачу</h4>
             <input
@@ -720,7 +775,7 @@ export default function SphereDevelopmentTree({ sphere, isOpen, onClose }: Spher
 
       {/* Модалка декларации задачи */}
       {isDeclareOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={()=>setIsDeclareOpen(false)}>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]" onClick={()=>setIsDeclareOpen(false)}>
           <div className="bg-gray-800 border border-gray-700 rounded-lg p-5 w-full max-w-sm mx-4" onClick={(e)=>e.stopPropagation()}>
             <h4 className="text-white font-semibold mb-3">Декларировать задачу</h4>
             <input
