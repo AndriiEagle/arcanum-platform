@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { createServerClient as createClient } from '../../../lib/supabase/server'
-import { logTokenUsage, getUserTokenUsage } from '../../../lib/services/tokenService'
-import { calculateCost } from '../../../lib/config/aiModels'
+import { createServerClient as createClient } from '../../../../lib/supabase/server'
+import { logTokenUsage, getUserTokenUsage } from '../../../../lib/services/tokenService'
+import { calculateCost } from '../../../../lib/config/aiModels'
 
 // Инициализация OpenAI клиента переносится внутрь обработчика POST, чтобы избежать падения сборки без ключа
 
