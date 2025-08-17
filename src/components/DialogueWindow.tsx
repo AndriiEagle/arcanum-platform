@@ -291,7 +291,7 @@ export default function DialogueWindow({ isOpen = true, onToggle }: DialogueWind
           : 'Задачи не найдены — добавь цель в любой сфере.'
         const spheresLine = spheres.length
           ? spheres.map((s: any) => `${s.code || s.name} (${s.health}%)`).join(', ')
-          : 'Сферы не настроены'
+          : 'Нет активных сфер — нажми кнопку Seed в левом сайдбаре, чтобы создать S1..S9'
 
         const greeting = `Привет! ${level ? `Твой уровень: ${level}. ` : ''}Активные сферы: ${spheresLine}.\nТоп задачи на сейчас:\n${tasksLine}\n⏳ До вечернего рапорта: ${timeLeftStr}.`
 
